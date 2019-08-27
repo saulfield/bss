@@ -7,6 +7,8 @@
 #include "bss.h"
 
 static Token token;
+Object* true_obj;
+Object* false_obj;
 
 /* Object */
 
@@ -59,20 +61,30 @@ int read_int(FILE* stream) {
 void next_token(FILE* stream) {
     skip_whitespace(stream);
     int c = getc(stream);
-    if (c == EOF) return;
+    int sign = 1;
 
-    if (c == '-') {
-        int value = read_int(stream);
-        token.kind = TK_INT;
-        token.int_val = -value;
-    } else if (isdigit(c)) {
-        ungetc(c, stream);
-        int value = read_int(stream);
-        token.kind = TK_INT;
-        token.int_val = value;
-    } else {
-        fprintf(stderr, "unexpected character: %c\n", c);
-        exit(1);
+    switch (c) {
+        case EOF:
+            token.kind = TK_EOF;
+            break;
+        case '#':
+            token.kind = TK_BOOL;
+            c = getc(stream);
+            assert(c == 't' || c == 'f', "bool must be #t or #f");
+            token.bool_val = c == 't' ? true : false;
+            break;
+        case '-':
+            c = getc(stream);
+            sign = -1;
+        case '0'...'9':
+            ungetc(c, stream);
+            int value = read_int(stream);
+            token.kind = TK_INT;
+            token.int_val = sign * value;
+            break;
+        default:
+            fprintf(stderr, "unexpected character: %c\n", c);
+            exit(1);
     }
 }
 
@@ -80,23 +92,37 @@ void next_token(FILE* stream) {
 
 Object* parse(FILE* stream) {
     next_token(stream);
-
-    if (token.kind == TK_INT) {
-        Object* object = new_object(TYPE_INT);
-        object->int_val = token.int_val;
-        return object;
-    } else {
-        fprintf(stderr, "unexpected token: %d\n", token.kind);
-        exit(1);
+    switch (token.kind) {
+        case TK_EOF: return NULL;
+        case TK_INT: {
+            Object* object = new_object(TYPE_INT);
+            object->int_val = token.int_val;
+            return object;
+        }
+        case TK_BOOL:
+            if (token.bool_val)
+                return true_obj;
+            return false_obj;
+        default:
+            fprintf(stderr, "unexpected token: %d\n", token.kind);
+            exit(1);
     }
 }
 
 /* Printing */
 
 void print_object(Object* object) {
+    if (!object) return;
+
     switch(object->type) {
         case TYPE_INT:
             printf("%d", object->int_val);
+            break;
+        case TYPE_BOOL:
+            if (object->bool_val)
+                printf("#t");
+            else
+                printf("#f");
             break;
         default:
             printf("TYPE_UNKNOWN [%d]", object->type);
@@ -114,25 +140,37 @@ void skip_repl_space(FILE* stream) {
     ungetc(c, stream);
 }
 
-int main(void) {
-    // FILE* file = fopen("input.scm", "r");
-    
-    // while (peek(file) != '\n') {
-    //     next_token(file);
-    //     printf("%d\n", token.int_value);
-    //     skip_repl_space(file);
-    // }
+void init() {
+    true_obj = new_object(TYPE_BOOL);
+    true_obj->bool_val = true;
 
-    /* REPL */
-    printf("Welcome to Bootstrap Scheme v0.1\n");
-    while (true) {
-        printf("> ");
-        while (peek(stdin) != '\n') {
-            print_object(parse(stdin));
-            printf("\n");
-            skip_repl_space(stdin);
+    false_obj = new_object(TYPE_BOOL);
+    false_obj->bool_val = false;
+}
+
+int main(int argc, char** argv) {
+    init();
+    
+    if (argc == 1) {
+        printf("Welcome to Bootstrap Scheme v0.1\n");
+        while (true) {
+            printf("> ");
+            while (peek(stdin) != '\n') {
+                print_object(parse(stdin));
+                printf("\n");
+                skip_repl_space(stdin);
+            }
+            getc(stdin);
         }
-        getc(stdin);
+    } else if (!strncmp(argv[1], "-f", 2)) {
+        FILE* file = fopen("input.scm", "r");
+        while (peek(file) != EOF) {
+            Object* object = parse(file);
+            if (object) {
+                print_object(object);
+                printf("\n");
+            }
+        }
     }
 
     return 0;
