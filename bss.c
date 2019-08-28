@@ -6,6 +6,8 @@
 
 #include "bss.h"
 
+#define BUF_MAX 256
+
 static Token token;
 Object* true_obj;
 Object* false_obj;
@@ -45,7 +47,7 @@ void skip_whitespace(FILE* stream) {
 }
 
 int read_int(FILE* stream) {
-    char c = getc(stream);
+    int c = getc(stream);
     int value = c - '0';
 
     c = getc(stream);
@@ -62,17 +64,20 @@ void next_token(FILE* stream) {
     skip_whitespace(stream);
     int c = getc(stream);
     int sign = 1;
+    char buf[BUF_MAX];
 
     switch (c) {
         case EOF:
             token.kind = TK_EOF;
             break;
+
         case '#':
             token.kind = TK_BOOL;
             c = getc(stream);
             assert(c == 't' || c == 'f', "bool must be #t or #f");
             token.bool_val = c == 't' ? true : false;
             break;
+
         case '-':
             c = getc(stream);
             sign = -1;
@@ -82,6 +87,21 @@ void next_token(FILE* stream) {
             token.kind = TK_INT;
             token.int_val = sign * value;
             break;
+
+        case '\"':
+            c = getc(stream);
+            int len = 0;
+            while (c != EOF && c != '\"') {
+                buf[len++] = c;
+                c = getc(stream);
+            }
+            char* str = malloc(len + 1);
+            memcpy(str, buf, len);
+            str[len+1] = '\0';
+            token.kind = TK_STRING;
+            token.str_val = str;
+            break;
+
         default:
             fprintf(stderr, "unexpected character: %c\n", c);
             exit(1);
@@ -92,17 +112,28 @@ void next_token(FILE* stream) {
 
 Object* parse(FILE* stream) {
     next_token(stream);
+    
     switch (token.kind) {
-        case TK_EOF: return NULL;
+        case TK_EOF:
+            return NULL;
+
+        case TK_BOOL:
+            if (token.bool_val)
+                return true_obj;
+            return false_obj;
+
         case TK_INT: {
             Object* object = new_object(TYPE_INT);
             object->int_val = token.int_val;
             return object;
         }
-        case TK_BOOL:
-            if (token.bool_val)
-                return true_obj;
-            return false_obj;
+
+        case TK_STRING: {
+            Object* object = new_object(TYPE_STRING);
+            object->str_val = token.str_val;
+            return object;
+        }
+
         default:
             fprintf(stderr, "unexpected token: %d\n", token.kind);
             exit(1);
@@ -123,6 +154,9 @@ void print_object(Object* object) {
                 printf("#t");
             else
                 printf("#f");
+            break;
+        case TYPE_STRING:
+            printf("\"%s\"", object->str_val);
             break;
         default:
             printf("TYPE_UNKNOWN [%d]", object->type);
@@ -152,7 +186,7 @@ int main(int argc, char** argv) {
     init();
     
     if (argc == 1) {
-        printf("Welcome to Bootstrap Scheme v0.1\n");
+        printf("Welcome to Bootstrap Scheme\n");
         while (true) {
             printf("> ");
             while (peek(stdin) != '\n') {
