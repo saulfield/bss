@@ -14,7 +14,8 @@ typedef enum ObjectType {
     TYPE_INT,
     TYPE_BOOL,
     TYPE_STRING,
-    TYPE_EMPTYLIST
+    TYPE_EMPTYLIST,
+    TYPE_PAIR
 } ObjectType;
 
 typedef struct Object {
@@ -23,12 +24,17 @@ typedef struct Object {
         int int_val;
         bool bool_val;
         char* str_val;
+        struct {
+            struct Object* car;
+            struct Object* cdr;
+        };
     };
 } Object;
 
 typedef enum {
     TK_LPAREN = '(',
     TK_RPAREN = ')',
+    TK_DOT = '.',
     TK_EOF = 128,
     TK_INT,
     TK_BOOL,
@@ -44,5 +50,10 @@ typedef struct Token {
         char* str_val;
     };
 } Token;
+
+typedef struct LexState {
+    FILE* stream;
+    Token token;
+} LexState;
 
 #endif

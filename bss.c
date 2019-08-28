@@ -8,7 +8,6 @@
 
 #define BUF_MAX 256
 
-static Token token;
 Object* true_obj;
 Object* false_obj;
 Object* empty_list;
@@ -61,51 +60,52 @@ int read_int(FILE* stream) {
     return value;
 }
 
-void next_token(FILE* stream) {
-    skip_whitespace(stream);
-    int c = getc(stream);
+void next_token(LexState* ls) {
+    skip_whitespace(ls->stream);
+    int c = getc(ls->stream);
     int sign = 1;
     char buf[BUF_MAX];
 
     switch (c) {
         case EOF:
-            token.kind = TK_EOF;
+            ls->token.kind = TK_EOF;
             break;
 
         case '#':
-            token.kind = TK_BOOL;
-            c = getc(stream);
+            ls->token.kind = TK_BOOL;
+            c = getc(ls->stream);
             assert(c == 't' || c == 'f', "bool must be #t or #f");
-            token.bool_val = c == 't' ? true : false;
+            ls->token.bool_val = c == 't' ? true : false;
             break;
 
         case '-':
-            c = getc(stream);
+            c = getc(ls->stream);
             sign = -1;
         case '0'...'9':
-            ungetc(c, stream);
-            int value = read_int(stream);
-            token.kind = TK_INT;
-            token.int_val = sign * value;
+            ungetc(c, ls->stream);
+            int value = read_int(ls->stream);
+            ls->token.kind = TK_INT;
+            ls->token.int_val = sign * value;
             break;
 
         case '\"':
-            c = getc(stream);
+            c = getc(ls->stream);
             int len = 0;
             while (c != EOF && c != '\"') {
                 buf[len++] = c;
-                c = getc(stream);
+                c = getc(ls->stream);
             }
             char* str = malloc(len + 1);
             memcpy(str, buf, len);
             str[len+1] = '\0';
-            token.kind = TK_STRING;
-            token.str_val = str;
+            ls->token.kind = TK_STRING;
+            ls->token.str_val = str;
             break;
 
         case '(':
         case ')':
-            token.kind = c;
+        case '.':
+            ls->token.kind = c;
             break;
 
         default:
@@ -116,37 +116,37 @@ void next_token(FILE* stream) {
 
 /* Parse */
 
-Object* parse(FILE* stream) {
-    next_token(stream);
+Object* parse(LexState* ls) {
+    next_token(ls);
     
-    switch (token.kind) {
+    switch (ls->token.kind) {
         case TK_EOF:
             return NULL;
 
         case TK_BOOL:
-            if (token.bool_val)
+            if (ls->token.bool_val)
                 return true_obj;
             return false_obj;
 
         case TK_INT: {
             Object* object = new_object(TYPE_INT);
-            object->int_val = token.int_val;
+            object->int_val = ls->token.int_val;
             return object;
         }
 
         case TK_STRING: {
             Object* object = new_object(TYPE_STRING);
-            object->str_val = token.str_val;
+            object->str_val = ls->token.str_val;
             return object;
         }
 
         case TK_LPAREN:
-            next_token(stream);
-            assert(token.kind == TK_RPAREN, "expected )");
+            next_token(ls);
+            assert(ls->token.kind == TK_RPAREN, "expected )");
             return empty_list;
 
         default:
-            fprintf(stderr, "unexpected token: %d\n", token.kind);
+            fprintf(stderr, "unexpected token: %d\n", ls->token.kind);
             exit(1);
     }
 }
@@ -199,14 +199,17 @@ void init() {
 }
 
 int main(int argc, char** argv) {
+    LexState ls = {};
     init();
-    
+
     if (argc == 1) {
         printf("Welcome to Bootstrap Scheme\n");
+
+        ls.stream = stdin;
         while (true) {
             printf("> ");
             while (peek(stdin) != '\n') {
-                print_object(parse(stdin));
+                print_object(parse(&ls));
                 printf("\n");
                 skip_repl_space(stdin);
             }
@@ -214,8 +217,9 @@ int main(int argc, char** argv) {
         }
     } else if (!strncmp(argv[1], "-f", 2)) {
         FILE* file = fopen("input.scm", "r");
+        ls.stream = file;
         while (peek(file) != EOF) {
-            Object* object = parse(file);
+            Object* object = parse(&ls);
             if (object) {
                 print_object(object);
                 printf("\n");
