@@ -11,6 +11,7 @@
 static Token token;
 Object* true_obj;
 Object* false_obj;
+Object* empty_list;
 
 /* Object */
 
@@ -102,6 +103,11 @@ void next_token(FILE* stream) {
             token.str_val = str;
             break;
 
+        case '(':
+        case ')':
+            token.kind = c;
+            break;
+
         default:
             fprintf(stderr, "unexpected character: %c\n", c);
             exit(1);
@@ -134,6 +140,11 @@ Object* parse(FILE* stream) {
             return object;
         }
 
+        case TK_LPAREN:
+            next_token(stream);
+            assert(token.kind == TK_RPAREN, "expected )");
+            return empty_list;
+
         default:
             fprintf(stderr, "unexpected token: %d\n", token.kind);
             exit(1);
@@ -158,6 +169,9 @@ void print_object(Object* object) {
         case TYPE_STRING:
             printf("\"%s\"", object->str_val);
             break;
+        case TYPE_EMPTYLIST:
+            printf("()");
+            break;
         default:
             printf("TYPE_UNKNOWN [%d]", object->type);
             break;
@@ -180,6 +194,8 @@ void init() {
 
     false_obj = new_object(TYPE_BOOL);
     false_obj->bool_val = false;
+
+    empty_list = new_object(TYPE_EMPTYLIST);
 }
 
 int main(int argc, char** argv) {

@@ -14,6 +14,7 @@ typedef enum ObjectType {
     TYPE_INT,
     TYPE_BOOL,
     TYPE_STRING,
+    TYPE_EMPTYLIST
 } ObjectType;
 
 typedef struct Object {
@@ -26,12 +27,12 @@ typedef struct Object {
 } Object;
 
 typedef enum {
-    TK_EOF,
+    TK_LPAREN = '(',
+    TK_RPAREN = ')',
+    TK_EOF = 128,
     TK_INT,
     TK_BOOL,
     TK_STRING,
-    TK_LPAREN,
-    TK_RPAREN,
     TK_SYMBOL,
 } TokenKind;
 
