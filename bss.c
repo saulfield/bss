@@ -20,6 +20,21 @@ Object* new_object(ObjectType type) {
     return object;
 }
 
+Object* cons(Object* car, Object* cdr) {
+    Object* object = new_object(TYPE_PAIR);
+    object->car = car;
+    object->cdr = cdr;
+    return object;
+}
+
+Object* car(Object* pair) {
+    return pair->car;
+}
+
+Object* cdr(Object* pair) {
+    return pair->cdr;
+}
+
 /* Lex */
 
 int peek(FILE* stream) {
@@ -116,34 +131,64 @@ void next_token(LexState* ls) {
 
 /* Parse */
 
-Object* parse(LexState* ls) {
+Object* parse_pair(LexState* ls) {
+    if (ls->token.kind == TK_RPAREN) {
+        next_token(ls);
+        return empty_list;
+    }
+
+    Object* car_obj = parse_exp(ls);
+
+    if (ls->token.kind == TK_DOT) {
+        // parse as a pair
+        next_token(ls);
+        Object* cdr_obj = parse_exp(ls);
+        assert(ls->token.kind == TK_RPAREN, "expected )");
+        next_token(ls);
+
+        Object* result = cons(car_obj, cdr_obj);
+        return result;
+    } else {
+        // parse as a list
+        Object* cadr_obj = parse_exp(ls);
+        assert(ls->token.kind == TK_RPAREN, "expected )");
+        next_token(ls);
+
+        Object* cdr_obj = cons(cadr_obj, empty_list);
+        Object* result = cons(car_obj, cdr_obj);
+        return result;
+    }
+}
+
+Object* parse_exp(LexState* ls) {
+    Token token = ls->token;
     next_token(ls);
-    
-    switch (ls->token.kind) {
+
+    switch (token.kind) {
         case TK_EOF:
             return NULL;
 
         case TK_BOOL:
-            if (ls->token.bool_val)
+            if (token.bool_val)
                 return true_obj;
             return false_obj;
 
         case TK_INT: {
             Object* object = new_object(TYPE_INT);
-            object->int_val = ls->token.int_val;
+            object->int_val = token.int_val;
             return object;
         }
 
         case TK_STRING: {
             Object* object = new_object(TYPE_STRING);
-            object->str_val = ls->token.str_val;
+            object->str_val = token.str_val;
             return object;
         }
 
-        case TK_LPAREN:
-            next_token(ls);
-            assert(ls->token.kind == TK_RPAREN, "expected )");
-            return empty_list;
+        case TK_LPAREN: {
+            Object* pair = parse_pair(ls);
+            return pair;
+        }
 
         default:
             fprintf(stderr, "unexpected token: %d\n", ls->token.kind);
@@ -171,6 +216,26 @@ void print_object(Object* object) {
             break;
         case TYPE_EMPTYLIST:
             printf("()");
+            break;
+        case TYPE_PAIR:
+            printf("(");
+
+            Object* o = object;
+            while (o->cdr->type == TYPE_PAIR && o->cdr != empty_list) {
+                print_object(o->car);
+                printf(" ");
+                o = o->cdr;
+            }
+
+            if (o->cdr == empty_list) {
+                print_object(o->car);
+            } else {
+                print_object(o->car);
+                printf(" . ");
+                print_object(o->cdr);
+            }
+
+            printf(")");
             break;
         default:
             printf("TYPE_UNKNOWN [%d]", object->type);
@@ -206,10 +271,11 @@ int main(int argc, char** argv) {
         printf("Welcome to Bootstrap Scheme\n");
 
         ls.stream = stdin;
+        next_token(&ls);
         while (true) {
             printf("> ");
             while (peek(stdin) != '\n') {
-                print_object(parse(&ls));
+                print_object(parse_exp(&ls));
                 printf("\n");
                 skip_repl_space(stdin);
             }
@@ -223,8 +289,9 @@ int main(int argc, char** argv) {
         }
 
         ls.stream = file;
+        next_token(&ls);
         while (peek(file) != EOF) {
-            Object* object = parse(&ls);
+            Object* object = parse_exp(&ls);
             if (object) {
                 print_object(object);
                 printf("\n");

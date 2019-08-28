@@ -56,4 +56,6 @@ typedef struct LexState {
     Token token;
 } LexState;
 
+Object* parse_exp(LexState* ls);
+
 #endif
