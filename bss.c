@@ -216,7 +216,12 @@ int main(int argc, char** argv) {
             getc(stdin);
         }
     } else if (!strncmp(argv[1], "-f", 2)) {
-        FILE* file = fopen("input.scm", "r");
+        FILE* file = fopen(argv[2], "r");
+        if (file == NULL) {
+            fprintf(stderr, "could not open file: %s\n", argv[2]);
+            exit(1);
+        }
+
         ls.stream = file;
         while (peek(file) != EOF) {
             Object* object = parse(&ls);
