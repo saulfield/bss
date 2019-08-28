@@ -11,6 +11,7 @@
 Object* true_obj;
 Object* false_obj;
 Object* empty_list;
+Object* symbols_head;
 
 /* Object */
 
@@ -76,6 +77,17 @@ int read_int(FILE* stream) {
     return value;
 }
 
+Object* get_symbol(char* name) {
+    Object* sym = symbols_head;
+    while (sym != empty_list) {
+        if (strcmp(sym->str_val, name) == 0) {
+            return sym;
+        }
+        sym = sym->cdr;
+    }
+    return NULL;
+}
+
 void next_token(LexState* ls) {
     skip_whitespace(ls->stream);
     int c = getc(ls->stream);
@@ -113,10 +125,41 @@ void next_token(LexState* ls) {
             }
             char* str = malloc(len + 1);
             memcpy(str, buf, len);
-            str[len+1] = '\0';
+            str[len] = '\0';
+
             ls->token.kind = TK_STRING;
             ls->token.str_val = str;
             break;
+
+        case '_':
+        case 'A'...'Z':
+        case 'a'...'z': {
+            int len = 0;
+            while (isalnum(c) || c == '_') {
+                buf[len++] = c;
+                c = getc(ls->stream);
+            }
+            buf[len] = '\0';
+
+            Object* symbol = get_symbol(buf);
+            if (symbol == NULL) {
+                // allocate memory for the string
+                char* str = malloc(len + 1);
+                memcpy(str, buf, len);
+                str[len] = '\0';
+
+                // create object for the symbol
+                symbol = new_object(TYPE_SYMBOL);
+                symbol->str_val = str;
+
+                // add to head of symbol list
+                Object* entry = cons(symbol, symbols_head);
+                symbols_head = entry;
+            }
+
+            ls->token.sym_val = symbol;
+            ls->token.kind = TK_SYMBOL;
+        } break;
 
         case '(':
         case ')':
@@ -162,6 +205,9 @@ Object* parse_pair(LexState* ls) {
 }
 
 Object* parse_exp(LexState* ls) {
+    if (ls->token.kind == TK_NONE)
+        next_token(ls);
+
     Token token = ls->token;
     next_token(ls);
 
@@ -185,6 +231,9 @@ Object* parse_exp(LexState* ls) {
             object->str_val = token.str_val;
             return object;
         }
+
+        case TK_SYMBOL:
+            return token.sym_val;
 
         case TK_LPAREN: {
             Object* pair = parse_pair(ls);
@@ -215,6 +264,9 @@ void print_object(Object* object) {
         case TYPE_STRING:
             printf("\"%s\"", object->str_val);
             break;
+        case TYPE_SYMBOL:
+            printf("%s", object->str_val);
+            break;
         case TYPE_EMPTYLIST:
             printf("()");
             break;
@@ -235,9 +287,9 @@ void print_object(Object* object) {
                 printf(" . ");
                 print_object(o->cdr);
             }
-
             printf(")");
             break;
+
         default:
             printf("TYPE_UNKNOWN [%d]", object->type);
             break;
@@ -262,6 +314,8 @@ void init() {
     false_obj->bool_val = false;
 
     empty_list = new_object(TYPE_EMPTYLIST);
+
+    symbols_head = empty_list;
 }
 
 int main(int argc, char** argv) {
@@ -272,7 +326,6 @@ int main(int argc, char** argv) {
         printf("Welcome to Bootstrap Scheme\n");
 
         ls.stream = stdin;
-        next_token(&ls);
         while (true) {
             printf("> ");
             while (peek(stdin) != '\n') {

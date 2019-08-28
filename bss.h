@@ -14,6 +14,7 @@ typedef enum ObjectType {
     TYPE_INT,
     TYPE_BOOL,
     TYPE_STRING,
+    TYPE_SYMBOL,
     TYPE_EMPTYLIST,
     TYPE_PAIR
 } ObjectType;
@@ -32,6 +33,7 @@ typedef struct Object {
 } Object;
 
 typedef enum {
+    TK_NONE = 0,
     TK_LPAREN = '(',
     TK_RPAREN = ')',
     TK_DOT = '.',
@@ -48,6 +50,7 @@ typedef struct Token {
         int int_val;
         bool bool_val;
         char* str_val;
+        Object* sym_val;
     };
 } Token;
 
