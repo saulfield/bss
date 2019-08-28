@@ -52,9 +52,10 @@ void skip_whitespace(FILE* stream) {
         }
 
         if (c == ';') {
-            while (c != EOF || c != '\n') {
+            while (c != EOF && c != '\n') {
                 c = getc(stream);
             }
+            continue;
         }
         ungetc(c, stream);
         break;
