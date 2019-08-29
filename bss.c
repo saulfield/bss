@@ -9,10 +9,11 @@
 
 #define BUF_MAX 256
 
+Object* symbols_head;
 Object* true_obj;
 Object* false_obj;
 Object* empty_list;
-Object* symbols_head;
+Object* quote_symbol;
 
 /* Object */
 
@@ -195,12 +196,15 @@ Object* parse_pair(LexState* ls) {
         return result;
     } else {
         // parse as a list
-        Object* cadr_obj = parse_exp(ls);
-        assert(ls->token.kind == TK_RPAREN, "expected )");
-        next_token(ls);
+        Object* head = cons(car_obj, empty_list);
+        Object* result = head;
+        while (ls->token.kind != TK_RPAREN) {
+            Object* tail = cons(parse_exp(ls), empty_list);
+            head->cdr = tail;
+            head = tail;
+        }
 
-        Object* cdr_obj = cons(cadr_obj, empty_list);
-        Object* result = cons(car_obj, cdr_obj);
+        next_token(ls);
         return result;
     }
 }
