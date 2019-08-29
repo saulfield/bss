@@ -68,6 +68,17 @@ Object* new_symbol(char* str) {
     return symbol;
 }
 
+Object* get_symbol(char* name) {
+    Object* sym = symbols_head;
+    while (sym != empty_list) {
+        if (strncmp(car(sym)->str_val, name, strlen(name)) == 0) {
+            return car(sym);
+        }
+        sym = cdr(sym);
+    }
+    return NULL;
+}
+
 /* Lex */
 
 int peek(FILE* stream) {
@@ -109,17 +120,6 @@ int read_int(FILE* stream) {
     return value;
 }
 
-Object* get_symbol(char* name) {
-    Object* sym = symbols_head;
-    while (sym != empty_list) {
-        if (strncmp(car(sym)->str_val, name, strlen(name)) == 0) {
-            return car(sym);
-        }
-        sym = cdr(sym);
-    }
-    return NULL;
-}
-
 void next_token(LexState* ls) {
     skip_whitespace(ls->stream);
     int c = getc(ls->stream);
@@ -127,14 +127,14 @@ void next_token(LexState* ls) {
     char buf[BUF_MAX];
 
     switch (c) {
-        case EOF:
+        case EOF: 
             ls->token.kind = TK_EOF;
             break;
 
         case '#':
-            ls->token.kind = TK_BOOL;
             c = getc(ls->stream);
             assert(c == 't' || c == 'f', "bool must be #t or #f");
+            ls->token.kind = TK_BOOL;
             ls->token.bool_val = c == 't' ? true : false;
             break;
 
@@ -179,7 +179,6 @@ void next_token(LexState* ls) {
                 char* str = malloc(len + 1);
                 memcpy(str, buf, len);
                 str[len] = '\0';
-
                 symbol = new_symbol(str);
             }
 
@@ -243,16 +242,12 @@ Object* parse_exp(LexState* ls) {
         case TK_INT: return new_int(token.int_val);
         case TK_BOOL: return token.bool_val ? true_obj : false_obj;
         case TK_SYMBOL: return token.sym_val;
-        case TK_LPAREN: return parse_pair(ls);
         case TK_STRING: return new_string(token.str_val);
-
-        case TK_QUOTE: {
-            Object* object = cons(quote_symbol, 
-                                  cons(parse_exp(ls),
-                                       empty_list));
-            return object;
-        }
-
+        case TK_LPAREN: return parse_pair(ls);
+        case TK_QUOTE:
+            return cons(quote_symbol, 
+                        cons(parse_exp(ls),
+                             empty_list));
         default:
             fprintf(stderr, "unexpected token: %d\n", ls->token.kind);
             exit(1);
@@ -282,32 +277,19 @@ Object* eval(Object* exp) {
 
 /* Printing */
 
-void print_object(Object* object) {
-    if (!object) return;
+void print_object(Object* obj) {
+    if (!obj) return;
 
-    switch(type(object)) {
-        case TYPE_INT:
-            printf("%d", object->int_val);
-            break;
-        case TYPE_BOOL:
-            if (object->bool_val)
-                printf("#t");
-            else
-                printf("#f");
-            break;
-        case TYPE_STRING:
-            printf("\"%s\"", object->str_val);
-            break;
-        case TYPE_SYMBOL:
-            printf("%s", object->str_val);
-            break;
-        case TYPE_EMPTYLIST:
-            printf("()");
-            break;
+    switch(type(obj)) {
+        case TYPE_INT: printf("%d", obj->int_val); break;
+        case TYPE_BOOL:  printf("%s", obj->bool_val ? "#t" : "#f"); break;
+        case TYPE_STRING: printf("\"%s\"", obj->str_val); break;
+        case TYPE_SYMBOL: printf("%s", obj->str_val); break;
+        case TYPE_EMPTYLIST: printf("()"); break;
         case TYPE_PAIR:
             printf("(");
 
-            Object* o = object;
+            Object* o = obj;
             while (type(cdr(o)) == TYPE_PAIR && cdr(o) != empty_list) {
                 print_object(car(o));
                 printf(" ");
@@ -323,9 +305,8 @@ void print_object(Object* object) {
             }
             printf(")");
             break;
-
         default:
-            fprintf(stderr, "unexpected type [%s]\n", type_names[type(object)]);
+            fprintf(stderr, "unexpected type [%s]\n", type_names[type(obj)]);
             exit(1);
     }
 }
@@ -342,13 +323,13 @@ void skip_repl_space(FILE* stream) {
 
 void init() {
     empty_list = new_object(TYPE_EMPTYLIST);
-    symbols_head = empty_list;
 
     true_obj = new_object(TYPE_BOOL);
     true_obj->bool_val = true;
     false_obj = new_object(TYPE_BOOL);
     false_obj->bool_val = false;
 
+    symbols_head = empty_list;
     quote_symbol = new_symbol("quote");
 }
 
@@ -369,7 +350,17 @@ int main(int argc, char** argv) {
 
     init();
 
-    if (argc == 1) {
+    if (argc == 3 && !strncmp(argv[1], "-f", 2)) {
+        FILE* file = fopen(argv[2], "r");
+        if (file == NULL) {
+            fprintf(stderr, "could not open file: %s\n", argv[2]);
+            exit(1);
+        }
+
+        ls.stream = file;
+        eval_all(&ls);
+        fclose(file);
+    } else {
         printf("Welcome to Bootstrap Scheme\n");
         
         while (true) {
@@ -389,16 +380,6 @@ int main(int argc, char** argv) {
             eval_all(&ls);
             fclose(stream);
         }
-    } else if (!strncmp(argv[1], "-f", 2)) {
-        FILE* file = fopen(argv[2], "r");
-        if (file == NULL) {
-            fprintf(stderr, "could not open file: %s\n", argv[2]);
-            exit(1);
-        }
-
-        ls.stream = file;
-        eval_all(&ls);
-        fclose(file);
     }
 
     return 0;
