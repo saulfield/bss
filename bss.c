@@ -9,13 +9,20 @@
 
 #define BUF_MAX 256
 
+#define cadr(x) (car(cdr(x)))
+#define cddr(x) (cdr(cdr(x)))
+
+Object* empty_list;
 Object* symbols_head;
+Object* quote_symbol;
 Object* true_obj;
 Object* false_obj;
-Object* empty_list;
-Object* quote_symbol;
 
 /* Object */
+
+ObjectType type(Object* object) {
+    return object->type;
+}
 
 Object* new_object(ObjectType type) {
     Object* object = malloc(sizeof(Object));
@@ -36,6 +43,29 @@ Object* car(Object* pair) {
 
 Object* cdr(Object* pair) {
     return pair->cdr;
+}
+
+Object* new_int(int val) {
+    Object* object = new_object(TYPE_INT);
+    object->int_val = val;
+    return object;
+}
+
+Object* new_string(char* str) {
+    Object* object = new_object(TYPE_STRING);
+    object->str_val = str;
+    return object;
+}
+
+Object* new_symbol(char* str) {
+    // create object for the symbol
+    Object* symbol = new_object(TYPE_SYMBOL);
+    symbol->str_val = str;
+
+    // add to head of symbol list
+    Object* entry = cons(symbol, symbols_head);
+    symbols_head = entry;
+    return symbol;
 }
 
 /* Lex */
@@ -82,10 +112,10 @@ int read_int(FILE* stream) {
 Object* get_symbol(char* name) {
     Object* sym = symbols_head;
     while (sym != empty_list) {
-        if (strcmp(sym->str_val, name) == 0) {
-            return sym;
+        if (strncmp(car(sym)->str_val, name, strlen(name)) == 0) {
+            return car(sym);
         }
-        sym = sym->cdr;
+        sym = cdr(sym);
     }
     return NULL;
 }
@@ -150,19 +180,14 @@ void next_token(LexState* ls) {
                 memcpy(str, buf, len);
                 str[len] = '\0';
 
-                // create object for the symbol
-                symbol = new_object(TYPE_SYMBOL);
-                symbol->str_val = str;
-
-                // add to head of symbol list
-                Object* entry = cons(symbol, symbols_head);
-                symbols_head = entry;
+                symbol = new_symbol(str);
             }
 
             ls->token.sym_val = symbol;
             ls->token.kind = TK_SYMBOL;
         } break;
 
+        case '\'':
         case '(':
         case ')':
         case '.':
@@ -189,11 +214,11 @@ Object* parse_pair(LexState* ls) {
         // parse as a pair
         next_token(ls);
         Object* cdr_obj = parse_exp(ls);
+
         assert(ls->token.kind == TK_RPAREN, "expected )");
         next_token(ls);
 
-        Object* result = cons(car_obj, cdr_obj);
-        return result;
+        return cons(car_obj, cdr_obj);
     } else {
         // parse as a list
         Object* head = cons(car_obj, empty_list);
@@ -214,36 +239,43 @@ Object* parse_exp(LexState* ls) {
     next_token(ls);
 
     switch (token.kind) {
-        case TK_EOF:
-            return NULL;
+        case TK_EOF: return NULL;
+        case TK_INT: return new_int(token.int_val);
+        case TK_BOOL: return token.bool_val ? true_obj : false_obj;
+        case TK_SYMBOL: return token.sym_val;
+        case TK_LPAREN: return parse_pair(ls);
+        case TK_STRING: return new_string(token.str_val);
 
-        case TK_BOOL:
-            if (token.bool_val)
-                return true_obj;
-            return false_obj;
-
-        case TK_INT: {
-            Object* object = new_object(TYPE_INT);
-            object->int_val = token.int_val;
+        case TK_QUOTE: {
+            Object* object = cons(quote_symbol, 
+                                  cons(parse_exp(ls),
+                                       empty_list));
             return object;
-        }
-
-        case TK_STRING: {
-            Object* object = new_object(TYPE_STRING);
-            object->str_val = token.str_val;
-            return object;
-        }
-
-        case TK_SYMBOL:
-            return token.sym_val;
-
-        case TK_LPAREN: {
-            Object* pair = parse_pair(ls);
-            return pair;
         }
 
         default:
             fprintf(stderr, "unexpected token: %d\n", ls->token.kind);
+            exit(1);
+    }
+}
+
+/* Eval */
+
+Object* eval(Object* exp) {
+    switch (type(exp)) {
+        
+        // self-evaluating
+        case TYPE_BOOL:
+        case TYPE_INT:
+        case TYPE_STRING:
+            return exp;
+
+        case TYPE_PAIR:
+            if (car(exp) == quote_symbol)
+                return cadr(exp);
+
+        default:
+            fprintf(stderr, "unexpected type [%s]\n", type_names[type(exp)]);
             exit(1);
     }
 }
@@ -253,7 +285,7 @@ Object* parse_exp(LexState* ls) {
 void print_object(Object* object) {
     if (!object) return;
 
-    switch(object->type) {
+    switch(type(object)) {
         case TYPE_INT:
             printf("%d", object->int_val);
             break;
@@ -276,25 +308,25 @@ void print_object(Object* object) {
             printf("(");
 
             Object* o = object;
-            while (o->cdr->type == TYPE_PAIR && o->cdr != empty_list) {
-                print_object(o->car);
+            while (type(cdr(o)) == TYPE_PAIR && cdr(o) != empty_list) {
+                print_object(car(o));
                 printf(" ");
-                o = o->cdr;
+                o = cdr(o);
             }
 
-            if (o->cdr == empty_list) {
-                print_object(o->car);
+            if (cdr(o) == empty_list) {
+                print_object(car(o));
             } else {
-                print_object(o->car);
+                print_object(car(o));
                 printf(" . ");
-                print_object(o->cdr);
+                print_object(cdr(o));
             }
             printf(")");
             break;
 
         default:
-            printf("TYPE_UNKNOWN [%d]", object->type);
-            break;
+            fprintf(stderr, "unexpected type [%s]\n", type_names[type(object)]);
+            exit(1);
     }
 }
 
@@ -309,23 +341,24 @@ void skip_repl_space(FILE* stream) {
 }
 
 void init() {
+    empty_list = new_object(TYPE_EMPTYLIST);
+    symbols_head = empty_list;
+
     true_obj = new_object(TYPE_BOOL);
     true_obj->bool_val = true;
-
     false_obj = new_object(TYPE_BOOL);
     false_obj->bool_val = false;
 
-    empty_list = new_object(TYPE_EMPTYLIST);
-
-    symbols_head = empty_list;
+    quote_symbol = new_symbol("quote");
 }
 
-void parse_all(LexState* ls) {
+void eval_all(LexState* ls) {
     next_token(ls);
-    while (peek(ls->stream) != EOF) {
-        Object* object = parse_exp(ls);
-        if (object) {
-            print_object(object);
+    while (ls->token.kind != TK_EOF) {
+        Object* exp = parse_exp(ls);
+        Object* result = eval(exp);
+        if (result) {
+            print_object(result);
             printf("\n");
         }
     }
@@ -353,7 +386,7 @@ int main(int argc, char** argv) {
 
             FILE* stream = fmemopen(buf, len, "r");
             ls.stream = stream;
-            parse_all(&ls);
+            eval_all(&ls);
             fclose(stream);
         }
     } else if (!strncmp(argv[1], "-f", 2)) {
@@ -364,7 +397,7 @@ int main(int argc, char** argv) {
         }
 
         ls.stream = file;
-        parse_all(&ls);
+        eval_all(&ls);
         fclose(file);
     }
 

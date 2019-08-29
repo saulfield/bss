@@ -19,6 +19,15 @@ typedef enum ObjectType {
     TYPE_PAIR
 } ObjectType;
 
+const char* type_names[] = {
+    [TYPE_INT] = "TYPE_INT",
+    [TYPE_BOOL] = "TYPE_BOOL",
+    [TYPE_STRING] = "TYPE_STRING",
+    [TYPE_SYMBOL] = "TYPE_SYMBOL",
+    [TYPE_EMPTYLIST] = "TYPE_EMPTYLIST",
+    [TYPE_PAIR] = "TYPE_PAI"
+};
+
 typedef struct Object {
     ObjectType type;
     union {
@@ -34,6 +43,7 @@ typedef struct Object {
 
 typedef enum {
     TK_NONE = 0,
+    TK_QUOTE = '\'',
     TK_LPAREN = '(',
     TK_RPAREN = ')',
     TK_DOT = '.',
