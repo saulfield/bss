@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -205,9 +206,6 @@ Object* parse_pair(LexState* ls) {
 }
 
 Object* parse_exp(LexState* ls) {
-    if (ls->token.kind == TK_NONE)
-        next_token(ls);
-
     Token token = ls->token;
     next_token(ls);
 
@@ -318,22 +316,41 @@ void init() {
     symbols_head = empty_list;
 }
 
+void parse_all(LexState* ls) {
+    next_token(ls);
+    while (peek(ls->stream) != EOF) {
+        Object* object = parse_exp(ls);
+        if (object) {
+            print_object(object);
+            printf("\n");
+        }
+    }
+}
+
 int main(int argc, char** argv) {
     LexState ls = {};
+
     init();
 
     if (argc == 1) {
         printf("Welcome to Bootstrap Scheme\n");
-
-        ls.stream = stdin;
+        
         while (true) {
+            char buf[BUF_MAX];
+            size_t len = 0;
+            
             printf("> ");
-            while (peek(stdin) != '\n') {
-                print_object(parse_exp(&ls));
-                printf("\n");
-                skip_repl_space(stdin);
+            int c = getc(stdin);
+            while (c != '\n') {
+                buf[len++] = c;
+                c = getc(stdin);
             }
-            getc(stdin);
+            buf[len++] = '\n';
+
+            FILE* stream = fmemopen(buf, len, "r");
+            ls.stream = stream;
+            parse_all(&ls);
+            fclose(stream);
         }
     } else if (!strncmp(argv[1], "-f", 2)) {
         FILE* file = fopen(argv[2], "r");
@@ -343,14 +360,8 @@ int main(int argc, char** argv) {
         }
 
         ls.stream = file;
-        next_token(&ls);
-        while (peek(file) != EOF) {
-            Object* object = parse_exp(&ls);
-            if (object) {
-                print_object(object);
-                printf("\n");
-            }
-        }
+        parse_all(&ls);
+        fclose(file);
     }
 
     return 0;

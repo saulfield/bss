@@ -1,2 +1,2 @@
 - [x] fix comments
-- [ ] fix REPL parsing
+- [x] fix REPL parsing
