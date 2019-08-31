@@ -25,7 +25,7 @@ const char* type_names[] = {
     [TYPE_STRING] = "TYPE_STRING",
     [TYPE_SYMBOL] = "TYPE_SYMBOL",
     [TYPE_EMPTYLIST] = "TYPE_EMPTYLIST",
-    [TYPE_PAIR] = "TYPE_PAI"
+    [TYPE_PAIR] = "TYPE_PAIR"
 };
 
 typedef struct Object {
@@ -70,5 +70,6 @@ typedef struct LexState {
 } LexState;
 
 Object* parse_exp(LexState* ls);
+void print_object(Object* obj);
 
 #endif

@@ -11,12 +11,18 @@
 
 #define cadr(x) (car(cdr(x)))
 #define cddr(x) (cdr(cdr(x)))
+#define caddr(x) (car(cddr(x)))
 
 Object* empty_list;
-Object* symbols_head;
-Object* quote_symbol;
+Object* global_env;
 Object* true_obj;
 Object* false_obj;
+
+Object* symbols_head;
+Object* quote_symbol;
+Object* define_symbol;
+Object* set_symbol;
+Object* ok_symbol;
 
 /* Object */
 
@@ -71,12 +77,89 @@ Object* new_symbol(char* str) {
 Object* get_symbol(char* name) {
     Object* sym = symbols_head;
     while (sym != empty_list) {
-        if (strncmp(car(sym)->str_val, name, strlen(name)) == 0) {
+        char* entry = car(sym)->str_val;
+        if (strncmp(entry, name, strlen(entry)) == 0) {
             return car(sym);
         }
         sym = cdr(sym);
     }
     return NULL;
+}
+
+/* Environment */
+
+Object* extend_environment(Object* vars, Object* vals, Object* env) {
+    return cons(cons(vars, vals), env);
+}
+
+void add_binding(Object* var, Object* val, Object* frame) {
+    frame->car = cons(var, car(frame));
+    frame->cdr = cons(val, cdr(frame));
+}
+
+void define_variable(Object* var, Object* val, Object* env) {
+    Object* frame = car(env);
+    Object* vars = car(frame);
+    Object* vals = cdr(frame);
+
+    while (vars != empty_list) {
+        if (car(vars) == var) {
+            vals->car = val;
+            return;
+        }
+        vars = cdr(vars);
+        vals = cdr(vals);
+    }
+    add_binding(var, val, frame);
+}
+
+void set_variable_value(Object* var, Object* val, Object* env) {
+    Object* frame;
+    Object* vars;
+    Object* vals;
+
+    while (env != empty_list) {
+        frame = car(env);
+        vars = car(frame);
+        vals = cdr(frame);
+
+        while (vars != empty_list) {
+            if (car(vars) == var) {
+                vals->car = val;
+                return;
+            }
+            vars = cdr(vars);
+            vals = cdr(vals);
+        }
+        env = cdr(env);
+    }
+
+    fprintf(stderr, "unbound variable: %s\n", var->str_val);
+    exit(1);
+}
+
+Object* lookup_variable(Object* var, Object* env) {
+    Object* frame;
+    Object* vars;
+    Object* vals;
+
+    while (env != empty_list) {
+        frame = car(env);
+        vars = car(frame);
+        vals = cdr(frame);
+
+        while (vars != empty_list) {
+            if (car(vars) == var) {
+                return car(vals);
+            }
+            vars = cdr(vars);
+            vals = cdr(vals);
+        }
+        env = cdr(env);
+    }
+
+    fprintf(stderr, "unbound variable: %s\n", var->str_val);
+    exit(1);
 }
 
 /* Lex */
@@ -152,6 +235,11 @@ void next_token(LexState* ls) {
             c = getc(ls->stream);
             int len = 0;
             while (c != EOF && c != '\"') {
+                if (len == BUF_MAX - 1) {
+                    fprintf(stderr, "exceeded max buffer length\n");
+                    exit(1);
+                }
+
                 buf[len++] = c;
                 c = getc(ls->stream);
             }
@@ -167,7 +255,12 @@ void next_token(LexState* ls) {
         case 'A'...'Z':
         case 'a'...'z': {
             int len = 0;
-            while (isalnum(c) || c == '_') {
+            while (isalnum(c) || c == '_' || c == '!') {
+                if (len == BUF_MAX - 1) {
+                    fprintf(stderr, "exceeded max buffer length\n");
+                    exit(1);
+                }
+
                 buf[len++] = c;
                 c = getc(ls->stream);
             }
@@ -245,7 +338,7 @@ Object* parse_exp(LexState* ls) {
         case TK_STRING: return new_string(token.str_val);
         case TK_LPAREN: return parse_pair(ls);
         case TK_QUOTE:
-            return cons(quote_symbol, 
+            return cons(quote_symbol,
                         cons(parse_exp(ls),
                              empty_list));
         default:
@@ -256,7 +349,7 @@ Object* parse_exp(LexState* ls) {
 
 /* Eval */
 
-Object* eval(Object* exp) {
+Object* eval(Object* exp, Object* env) {
     switch (type(exp)) {
         
         // self-evaluating
@@ -265,12 +358,25 @@ Object* eval(Object* exp) {
         case TYPE_STRING:
             return exp;
 
+        case TYPE_SYMBOL:
+            return lookup_variable(exp, env);
+
         case TYPE_PAIR:
             if (car(exp) == quote_symbol)
                 return cadr(exp);
 
+            if (car(exp) == define_symbol) {
+                define_variable(cadr(exp), eval(caddr(exp), env), env);
+                return ok_symbol;
+            }
+
+            if (car(exp) == set_symbol) {
+                set_variable_value(cadr(exp), eval(caddr(exp), env), env);
+                return ok_symbol;
+            }
+
         default:
-            fprintf(stderr, "unexpected type [%s]\n", type_names[type(exp)]);
+            fprintf(stderr, "unexpected type: [%s]\n", type_names[type(exp)]);
             exit(1);
     }
 }
@@ -306,7 +412,7 @@ void print_object(Object* obj) {
             printf(")");
             break;
         default:
-            fprintf(stderr, "unexpected type [%s]\n", type_names[type(obj)]);
+            fprintf(stderr, "unexpected type: [%s]\n", type_names[type(obj)]);
             exit(1);
     }
 }
@@ -329,15 +435,20 @@ void init() {
     false_obj = new_object(TYPE_BOOL);
     false_obj->bool_val = false;
 
-    symbols_head = empty_list;
-    quote_symbol = new_symbol("quote");
+    global_env = extend_environment(empty_list, empty_list, empty_list);
+
+    symbols_head  = empty_list;
+    quote_symbol  = new_symbol("quote");
+    define_symbol = new_symbol("define");
+    set_symbol    = new_symbol("set!");
+    ok_symbol     = new_symbol("ok");
 }
 
 void eval_all(LexState* ls) {
     next_token(ls);
     while (ls->token.kind != TK_EOF) {
         Object* exp = parse_exp(ls);
-        Object* result = eval(exp);
+        Object* result = eval(exp, global_env);
         if (result) {
             print_object(result);
             printf("\n");
@@ -370,6 +481,11 @@ int main(int argc, char** argv) {
             printf("> ");
             int c = getc(stdin);
             while (c != '\n') {
+                if (len == BUF_MAX - 1) {
+                    fprintf(stderr, "exceeded max buffer length\n");
+                    exit(1);
+                }
+
                 buf[len++] = c;
                 c = getc(stdin);
             }
