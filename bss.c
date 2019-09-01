@@ -77,6 +77,12 @@ Object* new_symbol(char* str) {
     return symbol;
 }
 
+Object* new_primitiveproc(Object* (*func)(Object*)) {
+    Object* proc = new_object(TYPE_PRIMITIVEPROC);
+    proc->func = func;
+    return proc;
+}
+
 Object* get_symbol(char* name) {
     Object* sym = symbols_head;
     while (sym != empty_list) {
@@ -87,6 +93,20 @@ Object* get_symbol(char* name) {
         sym = cdr(sym);
     }
     return NULL;
+}
+
+Object* add_proc(Object* args) {
+    int result = 0;
+
+    while (args != empty_list) {
+        Object* obj = car(args);
+        assert(type(obj) == TYPE_INT, "expected TYPE_INT");
+
+        result += obj->int_val;
+        args = cdr(args);
+    }
+
+    return new_int(result);
 }
 
 /* Environment */
@@ -255,10 +275,11 @@ void next_token(LexState* ls) {
             break;
 
         case '_':
+        case '+':
         case 'A'...'Z':
         case 'a'...'z': {
             int len = 0;
-            while (isalnum(c) || c == '_' || c == '!') {
+            while (isalnum(c) || c == '_' || c == '!' || c == '+') {
                 if (len == BUF_MAX - 1) {
                     fprintf(stderr, "exceeded max buffer length\n");
                     exit(1);
@@ -353,6 +374,13 @@ Object* parse_exp(LexState* ls) {
 
 /* Eval */
 
+Object* list_of_values(Object* exps, Object* env) {
+    if (exps == empty_list) return empty_list;
+
+    return cons(eval(car(exps), env),
+                list_of_values(cdr(exps), env));
+}
+
 Object* eval(Object* exp, Object* env) {
     switch (type(exp)) {
         
@@ -391,6 +419,13 @@ Object* eval(Object* exp, Object* env) {
                 }
             }
 
+            // procedure application
+            Object* proc = eval(car(exp), env);
+            Object* args = list_of_values(cdr(exp), env);
+
+            assert(type(proc) == TYPE_PRIMITIVEPROC, "expected primitive procedure");
+            return proc->func(args);
+
         default:
             fprintf(stderr, "unexpected type: [%s]\n", type_names[type(exp)]);
             exit(1);
@@ -408,6 +443,7 @@ void print_object(Object* obj) {
         case TYPE_STRING: printf("\"%s\"", obj->str_val); break;
         case TYPE_SYMBOL: printf("%s", obj->str_val); break;
         case TYPE_EMPTYLIST: printf("()"); break;
+        case TYPE_PRIMITIVEPROC: printf("#<procedure>"); break;
         case TYPE_PAIR:
             printf("(");
 
@@ -459,6 +495,8 @@ void init() {
     set_symbol    = new_symbol("set!");
     ok_symbol     = new_symbol("ok");
     if_symbol     = new_symbol("if");
+
+    define_variable(new_symbol("+"), new_primitiveproc(add_proc), global_env);
 }
 
 void eval_all(LexState* ls) {

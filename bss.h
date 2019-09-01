@@ -16,7 +16,8 @@ typedef enum ObjectType {
     TYPE_STRING,
     TYPE_SYMBOL,
     TYPE_EMPTYLIST,
-    TYPE_PAIR
+    TYPE_PAIR,
+    TYPE_PRIMITIVEPROC,
 } ObjectType;
 
 const char* type_names[] = {
@@ -25,7 +26,8 @@ const char* type_names[] = {
     [TYPE_STRING] = "TYPE_STRING",
     [TYPE_SYMBOL] = "TYPE_SYMBOL",
     [TYPE_EMPTYLIST] = "TYPE_EMPTYLIST",
-    [TYPE_PAIR] = "TYPE_PAIR"
+    [TYPE_PAIR] = "TYPE_PAIR",
+    [TYPE_PRIMITIVEPROC] = "TYPE_PRIMITIVEPROC"
 };
 
 typedef struct Object {
@@ -34,6 +36,7 @@ typedef struct Object {
         int int_val;
         bool bool_val;
         char* str_val;
+        struct Object* (*func)(struct Object* args);
         struct {
             struct Object* car;
             struct Object* cdr;
@@ -71,5 +74,6 @@ typedef struct LexState {
 
 Object* parse_exp(LexState* ls);
 void print_object(Object* obj);
+Object* eval(Object* exp, Object* env);
 
 #endif
