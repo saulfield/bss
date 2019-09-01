@@ -10,6 +10,16 @@ void assert(int condition, const char* message) {
     }
 }
 
+const bool valid_chars[] = {
+    ['+'] = true,
+    ['-'] = true,
+    ['/'] = true,
+    ['*'] = true,
+    ['_'] = true,
+    ['!'] = true,
+    ['?'] = true,
+};
+
 typedef enum ObjectType {
     TYPE_INT,
     TYPE_BOOL,

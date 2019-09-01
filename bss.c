@@ -77,12 +77,6 @@ Object* new_symbol(char* str) {
     return symbol;
 }
 
-Object* new_primitiveproc(Object* (*func)(Object*)) {
-    Object* proc = new_object(TYPE_PRIMITIVEPROC);
-    proc->func = func;
-    return proc;
-}
-
 Object* get_symbol(char* name) {
     Object* sym = symbols_head;
     while (sym != empty_list) {
@@ -95,7 +89,13 @@ Object* get_symbol(char* name) {
     return NULL;
 }
 
-Object* add_proc(Object* args) {
+Object* new_primitive_proc(Object* (*func)(Object*)) {
+    Object* proc = new_object(TYPE_PRIMITIVEPROC);
+    proc->func = func;
+    return proc;
+}
+
+Object* _proc_add(Object* args) {
     int result = 0;
 
     while (args != empty_list) {
@@ -105,7 +105,52 @@ Object* add_proc(Object* args) {
         result += obj->int_val;
         args = cdr(args);
     }
+    return new_int(result);
+}
 
+Object* _proc_sub(Object* args) {
+    Object* obj = car(args);
+    int result = obj->int_val;
+    args = cdr(args);
+
+    while (args != empty_list) {
+        obj = car(args);
+        assert(type(obj) == TYPE_INT, "expected TYPE_INT");
+
+        result -= obj->int_val;
+        args = cdr(args);
+    }
+    return new_int(result);
+}
+
+Object* _proc_mul(Object* args) {
+    int result = 1;
+
+    while (args != empty_list) {
+        Object* obj = car(args);
+        assert(type(obj) == TYPE_INT, "expected TYPE_INT");
+
+        result *= obj->int_val;
+        args = cdr(args);
+    }
+
+    return new_int(result);
+}
+
+Object* _proc_div(Object* args) {
+    Object* obj = car(args);
+    assert(type(obj) == TYPE_INT, "expected TYPE_INT");
+
+    int result = obj->int_val;
+    args = cdr(args);
+
+    while (args != empty_list) {
+        obj = car(args);
+        assert(type(obj) == TYPE_INT, "expected TYPE_INT");
+
+        result /= obj->int_val;
+        args = cdr(args);
+    }
     return new_int(result);
 }
 
@@ -183,6 +228,35 @@ Object* lookup_variable(Object* var, Object* env) {
 
     fprintf(stderr, "unbound variable: %s\n", var->str_val);
     exit(1);
+}
+
+void add_procedure(char* name, Object *proc(Object *args)) {
+    define_variable(new_symbol(name),
+                    new_primitive_proc(proc),
+                    global_env);
+}
+
+void init() {
+    empty_list = new_object(TYPE_EMPTYLIST);
+
+    true_obj = new_object(TYPE_BOOL);
+    true_obj->bool_val = true;
+    false_obj = new_object(TYPE_BOOL);
+    false_obj->bool_val = false;
+
+    global_env = extend_environment(empty_list, empty_list, empty_list);
+
+    symbols_head  = empty_list;
+    quote_symbol  = new_symbol("quote");
+    define_symbol = new_symbol("define");
+    set_symbol    = new_symbol("set!");
+    ok_symbol     = new_symbol("ok");
+    if_symbol     = new_symbol("if");
+
+    add_procedure("+", _proc_add);
+    add_procedure("-", _proc_sub);
+    add_procedure("*", _proc_mul);
+    add_procedure("/", _proc_div);
 }
 
 /* Lex */
@@ -287,7 +361,7 @@ void next_token(LexState* ls) {
 
             // otherwise, parse as symbol
             int len = 0;
-            while (isalnum(c) || c == '_' || c == '!' || c == '+') {
+            while (isalnum(c) || valid_chars[c]) {
                 if (len == BUF_MAX - 1) {
                     fprintf(stderr, "exceeded max buffer length\n");
                     exit(1);
@@ -485,26 +559,6 @@ void skip_repl_space(FILE* stream) {
         c = getc(stream);
     }
     ungetc(c, stream);
-}
-
-void init() {
-    empty_list = new_object(TYPE_EMPTYLIST);
-
-    true_obj = new_object(TYPE_BOOL);
-    true_obj->bool_val = true;
-    false_obj = new_object(TYPE_BOOL);
-    false_obj->bool_val = false;
-
-    global_env = extend_environment(empty_list, empty_list, empty_list);
-
-    symbols_head  = empty_list;
-    quote_symbol  = new_symbol("quote");
-    define_symbol = new_symbol("define");
-    set_symbol    = new_symbol("set!");
-    ok_symbol     = new_symbol("ok");
-    if_symbol     = new_symbol("if");
-
-    define_variable(new_symbol("+"), new_primitiveproc(add_proc), global_env);
 }
 
 void eval_all(LexState* ls) {
