@@ -228,9 +228,10 @@ int read_int(FILE* stream) {
 
 void next_token(LexState* ls) {
     skip_whitespace(ls->stream);
-    int c = getc(ls->stream);
-    int sign = 1;
     char buf[BUF_MAX];
+    int value;
+    int sign = 1;
+    int c = getc(ls->stream);
 
     switch (c) {
         case EOF: 
@@ -244,12 +245,9 @@ void next_token(LexState* ls) {
             ls->token.bool_val = c == 't' ? true : false;
             break;
 
-        case '-':
-            c = getc(ls->stream);
-            sign = -1;
         case '0'...'9':
             ungetc(c, ls->stream);
-            int value = read_int(ls->stream);
+            value = read_int(ls->stream);
             ls->token.kind = TK_INT;
             ls->token.int_val = sign * value;
             break;
@@ -275,9 +273,19 @@ void next_token(LexState* ls) {
             break;
 
         case '_':
-        case '+':
+        case '+': case '-': case '*': case '/':
         case 'A'...'Z':
         case 'a'...'z': {
+            // parse as number if digits follow minus sign
+            if (c == '-' && isdigit(peek(ls->stream))) {
+                sign = -1;
+                value = read_int(ls->stream);
+                ls->token.kind = TK_INT;
+                ls->token.int_val = sign * value;
+                break;
+            }
+
+            // otherwise, parse as symbol
             int len = 0;
             while (isalnum(c) || c == '_' || c == '!' || c == '+') {
                 if (len == BUF_MAX - 1) {
