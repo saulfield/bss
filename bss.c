@@ -12,6 +12,8 @@
 #define cadr(x) (car(cdr(x)))
 #define cddr(x) (cdr(cdr(x)))
 #define caddr(x) (car(cddr(x)))
+#define cdddr(x) (cdr(cddr(x)))
+#define cadddr(x) (car(cdddr(x)))
 
 Object* empty_list;
 Object* global_env;
@@ -23,6 +25,7 @@ Object* quote_symbol;
 Object* define_symbol;
 Object* set_symbol;
 Object* ok_symbol;
+Object* if_symbol;
 
 /* Object */
 
@@ -264,6 +267,7 @@ void next_token(LexState* ls) {
                 buf[len++] = c;
                 c = getc(ls->stream);
             }
+            ungetc(c, ls->stream);
             buf[len] = '\0';
 
             Object* symbol = get_symbol(buf);
@@ -375,6 +379,18 @@ Object* eval(Object* exp, Object* env) {
                 return ok_symbol;
             }
 
+            if (car(exp) == if_symbol) {
+                if (eval(cadr(exp), env) != false_obj) {
+                    return eval(caddr(exp), env);
+                } else {
+                    if (cdddr(exp) == empty_list)
+                        return false_obj;
+
+                    Object* alt = cadddr(exp);
+                    return eval(alt, env);
+                }
+            }
+
         default:
             fprintf(stderr, "unexpected type: [%s]\n", type_names[type(exp)]);
             exit(1);
@@ -442,6 +458,7 @@ void init() {
     define_symbol = new_symbol("define");
     set_symbol    = new_symbol("set!");
     ok_symbol     = new_symbol("ok");
+    if_symbol     = new_symbol("if");
 }
 
 void eval_all(LexState* ls) {
