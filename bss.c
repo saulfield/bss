@@ -177,6 +177,12 @@ Object* bool_object(bool expression) {
     return expression ? true_obj : false_obj;
 }
 
+Object* _proc_not(Object* args) {
+    Object* arg = car(args);
+    assert(type(arg) == TYPE_BOOL, "expected bool");
+    return bool_object(!arg->bool_val);
+}
+
 Object* _proc_is_null(Object* args) {
     return bool_object(car(args) == empty_list);
 }
@@ -350,6 +356,7 @@ void init() {
     add_procedure("*", _proc_mul);
     add_procedure("/", _proc_div);
     add_procedure("=", _proc_equals);
+    add_procedure("not", _proc_not);
 
     add_procedure("null?", _proc_is_null);
     add_procedure("eq?", _proc_is_eq);
