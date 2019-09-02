@@ -43,4 +43,26 @@
 (* 1 2 3)
 (/ 60 3 2)
 
+"lambda"
+(define f (lambda () (lambda (x) x)))
+f
+(f)
+(define g (f))
+(g 1)
+((f) 2)
+((lambda (x) x) 3)
+
+"y combinator"
+(define Y
+    (lambda (f)
+      ((lambda (x) (f (lambda (y) ((x x) y))))
+       (lambda (x) (f (lambda (y) ((x x) y)))))))
+(define factorial
+    (Y (lambda (fact) 
+         (lambda (n) 
+           (if (= n 0)
+               1
+               (* n (fact (- n 1))))))))
+(factorial 5)
+
 ;

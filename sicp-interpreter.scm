@@ -222,14 +222,9 @@
     env)
   'ok)
 
-;; (define (eval-if exp env)
-;;   (if (true? (eval-expr (if-predicate exp) env))
-;;       (eval-expr (if-consequent  exp) env)
-;;       (eval-expr (if-alternative exp) env)))
-
 (define (eval-if exp env)
-  (if (true? (actual-value (if-predicate exp) env))
-      (eval-expr (if-consequent exp) env)
+  (if (true? (eval-expr (if-predicate exp) env))
+      (eval-expr (if-consequent  exp) env)
       (eval-expr (if-alternative exp) env)))
 
 (define (begin? exp) (tagged-list? exp 'begin))
@@ -302,13 +297,9 @@
         ((cond? exp) (eval-expr (cond->if exp) env))
         ((let? exp) (eval-expr (let->combination exp) env))
         ((letrec? exp) (eval-expr (letrec->let exp) env))
-        ;; ((application? exp)
-        ;;  (apply-proc (eval-expr (operator exp) env)
-        ;;              (list-of-values (operands exp) env)))
         ((application? exp)
-         (apply-proc (actual-value (operator exp) env)
-                     (operands exp)
-                     env))
+         (apply-proc (eval-expr (operator exp) env)
+                     (list-of-values (operands exp) env)))
         (else
          (error "Unknown expression type: EVAL" exp))))
 
@@ -320,36 +311,16 @@
 (define (apply-primitive-procedure proc args)
   (apply (primitive-implementation proc) args))
 
-;; (define (apply-proc procedure args)
-;;   (cond ((primitive-procedure? procedure)
-;;          (apply-primitive-procedure procedure args))
-;;         ((compound-procedure? procedure)
-;;          (eval-sequence
-;;            (procedure-body procedure)
-;;            (extend-environment
-;;              (procedure-params procedure)
-;;              args
-;;              (procedure-env procedure))))
-;;         (else
-;;          (error "Unknown procedure type: APPLY"
-;;                 procedure))))
-
-(define (apply-proc procedure args env)
+(define (apply-proc procedure args)
   (cond ((primitive-procedure? procedure)
-         (apply-primitive-procedure
-          procedure
-          (list-of-arg-values
-           args
-           env)))  ; changed
+         (apply-primitive-procedure procedure args))
         ((compound-procedure? procedure)
          (eval-sequence
-          (procedure-body procedure)
-          (extend-environment
-           (procedure-params procedure)
-           (list-of-delayed-args
-            args
-            env)   ; changed
-           (procedure-env procedure))))
+           (procedure-body procedure)
+           (extend-environment
+             (procedure-params procedure)
+             args
+             (procedure-env procedure))))
         (else
          (error "Unknown procedure type: APPLY"
                 procedure))))

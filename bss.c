@@ -26,6 +26,7 @@ Object* define_symbol;
 Object* set_symbol;
 Object* ok_symbol;
 Object* if_symbol;
+Object* lambda_symbol;
 
 /* Object */
 
@@ -89,9 +90,17 @@ Object* get_symbol(char* name) {
     return NULL;
 }
 
-Object* new_primitive_proc(Object* (*func)(Object*)) {
-    Object* proc = new_object(TYPE_PRIMITIVEPROC);
-    proc->func = func;
+Object* new_primitive(Object* (*func)(Object*)) {
+    Object* primitive = new_object(TYPE_PRIMITIVE);
+    primitive->func = func;
+    return primitive;
+}
+
+Object* new_procedure(Object* params, Object* body, Object* env) {
+    Object* proc = new_object(TYPE_PROCEDURE);
+    proc->params = params;
+    proc->body = body;
+    proc->env = env;
     return proc;
 }
 
@@ -330,7 +339,7 @@ Object* lookup_variable(Object* var, Object* env) {
 
 void add_procedure(char* name, Object *proc(Object *args)) {
     define_variable(new_symbol(name),
-                    new_primitive_proc(proc),
+                    new_primitive(proc),
                     global_env);
 }
 
@@ -350,25 +359,26 @@ void init() {
     set_symbol    = new_symbol("set!");
     ok_symbol     = new_symbol("ok");
     if_symbol     = new_symbol("if");
+    lambda_symbol = new_symbol("lambda");
 
-    add_procedure("+", _proc_add);
-    add_procedure("-", _proc_sub);
-    add_procedure("*", _proc_mul);
-    add_procedure("/", _proc_div);
-    add_procedure("=", _proc_equals);
+    add_procedure("+",   _proc_add);
+    add_procedure("-",   _proc_sub);
+    add_procedure("*",   _proc_mul);
+    add_procedure("/",   _proc_div);
+    add_procedure("=",   _proc_equals);
     add_procedure("not", _proc_not);
 
-    add_procedure("null?", _proc_is_null);
-    add_procedure("eq?", _proc_is_eq);
+    add_procedure("null?",   _proc_is_null);
+    add_procedure("eq?",     _proc_is_eq);
     add_procedure("number?", _proc_is_number);
     add_procedure("string?", _proc_is_string);
     add_procedure("symbol?", _proc_is_symbol);
-    add_procedure("pair?", _proc_is_pair);
+    add_procedure("pair?",   _proc_is_pair);
     
-    add_procedure("list", _proc_list);
-    add_procedure("car", _proc_car);
-    add_procedure("cdr", _proc_cdr);
-    add_procedure("cons", _proc_cons);
+    add_procedure("list",     _proc_list);
+    add_procedure("car",      _proc_car);
+    add_procedure("cdr",      _proc_cdr);
+    add_procedure("cons",     _proc_cons);
     add_procedure("set-car!", _proc_set_car);
     add_procedure("set-cdr!", _proc_set_cdr);
 }
@@ -568,7 +578,7 @@ Object* parse_exp(LexState* ls) {
     }
 }
 
-/* Eval */
+/* Eval/Apply */
 
 Object* list_of_values(Object* exps, Object* env) {
     if (exps == empty_list) return empty_list;
@@ -589,21 +599,23 @@ Object* eval(Object* exp, Object* env) {
         case TYPE_SYMBOL:
             return lookup_variable(exp, env);
 
-        case TYPE_PAIR:
-            if (car(exp) == quote_symbol)
+        case TYPE_PAIR: {
+            Object* tag = car(exp);
+
+            if (tag == quote_symbol)
                 return cadr(exp);
 
-            if (car(exp) == define_symbol) {
+            if (tag == define_symbol) {
                 define_variable(cadr(exp), eval(caddr(exp), env), env);
                 return ok_symbol;
             }
 
-            if (car(exp) == set_symbol) {
+            if (tag == set_symbol) {
                 set_variable_value(cadr(exp), eval(caddr(exp), env), env);
                 return ok_symbol;
             }
 
-            if (car(exp) == if_symbol) {
+            if (tag == if_symbol) {
                 if (eval(cadr(exp), env) != false_obj) {
                     return eval(caddr(exp), env);
                 } else {
@@ -615,13 +627,30 @@ Object* eval(Object* exp, Object* env) {
                 }
             }
 
+            if (tag == lambda_symbol) {
+                Object* params = cadr(exp);
+                Object* body = cddr(exp);
+                return new_procedure(params, body, env);
+            }
+
             // procedure application
             Object* proc = eval(car(exp), env);
             Object* args = list_of_values(cdr(exp), env);
 
-            assert(type(proc) == TYPE_PRIMITIVEPROC, "expected primitive procedure");
-            return proc->func(args);
+            if (type(proc) == TYPE_PRIMITIVE)
+                return proc->func(args);
+            
+            assert(type(proc) == TYPE_PROCEDURE, "expected compound procedure");
 
+            Object* new_env = extend_environment(proc->params, args, env);
+            Object* body = proc->body;
+            Object* result;
+            while (body != empty_list) {
+                result = eval(car(body), new_env);
+                body = cdr(body);
+            }
+            return result;
+        }
         default:
             fprintf(stderr, "unexpected type: [%s]\n", type_names[type(exp)]);
             exit(1);
@@ -639,7 +668,8 @@ void print_object(Object* obj) {
         case TYPE_STRING: printf("\"%s\"", obj->str_val); break;
         case TYPE_SYMBOL: printf("%s", obj->str_val); break;
         case TYPE_EMPTYLIST: printf("()"); break;
-        case TYPE_PRIMITIVEPROC: printf("#<procedure>"); break;
+        case TYPE_PROCEDURE:
+        case TYPE_PRIMITIVE: printf("#<procedure>"); break;
         case TYPE_PAIR:
             printf("(");
 

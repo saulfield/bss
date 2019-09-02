@@ -28,7 +28,8 @@ typedef enum ObjectType {
     TYPE_SYMBOL,
     TYPE_EMPTYLIST,
     TYPE_PAIR,
-    TYPE_PRIMITIVEPROC,
+    TYPE_PRIMITIVE,
+    TYPE_PROCEDURE
 } ObjectType;
 
 const char* type_names[] = {
@@ -38,7 +39,8 @@ const char* type_names[] = {
     [TYPE_SYMBOL] = "TYPE_SYMBOL",
     [TYPE_EMPTYLIST] = "TYPE_EMPTYLIST",
     [TYPE_PAIR] = "TYPE_PAIR",
-    [TYPE_PRIMITIVEPROC] = "TYPE_PRIMITIVEPROC"
+    [TYPE_PRIMITIVE] = "TYPE_PRIMITIVE",
+    [TYPE_PROCEDURE] = "TYPE_PROCEDURE",
 };
 
 typedef struct Object {
@@ -48,6 +50,11 @@ typedef struct Object {
         bool bool_val;
         char* str_val;
         struct Object* (*func)(struct Object* args);
+        struct {
+            struct Object* params;
+            struct Object* body;
+            struct Object* env;
+        };
         struct {
             struct Object* car;
             struct Object* cdr;
