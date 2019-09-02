@@ -86,4 +86,28 @@ f
 (let ((x (+ 1 1))
       (y (- 5 2)))
   (+ x y))
-  
+
+"sicp interpreter"
+(load "sicp.scm")
+
+(eval-expr '(define Y
+  (lambda (F)
+    ((lambda (x)
+       (F (lambda (arg) ((x x) arg))))
+     (lambda (x)
+       (F (lambda (arg) ((x x) arg))))))) global-env)
+
+(eval-expr '(define fact-gen
+  (lambda (f)
+    (lambda (n)
+      (if (= n 0)
+          1
+          (* n (f (- n 1))))))) global-env)
+
+(eval-expr '(define fact (Y fact-gen)) global-env)
+
+(eval-expr '(fact 5) global-env)
+
+
+
+

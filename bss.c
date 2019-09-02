@@ -299,6 +299,16 @@ Object* _proc_load(Object* args) {
     return ok_symbol;
 }
 
+Object* _proc_error(Object* args) {
+    while (args != empty_list) {
+        print_object(car(args));
+        printf(" ");
+        args = cdr(args);
+    }
+    printf("\n");
+    exit(1);
+}
+
 /* Environment */
 
 Object* extend_environment(Object* vars, Object* vals, Object* env) {
@@ -426,6 +436,7 @@ void init() {
     add_procedure("set-cdr!", _proc_set_cdr);
 
     add_procedure("load",     _proc_load);
+    add_procedure("error",    _proc_error);
 }
 
 /* Lex */
@@ -719,7 +730,7 @@ Object* eval(Object* exp, Object* env) {
                 Object* vars = let_vars(bindings);
                 Object* vals = let_vals(bindings);
                 Object* body_exps = cddr(exp);
-                
+
                 Object* lambda = make_lambda(vars, body_exps);
                 return eval(cons(lambda, vals), env);
             }
