@@ -1,2 +1,6 @@
 - [x] fix comments
 - [x] fix REPL parsing
+- [x] apply
+- [ ] load
+- [ ] stdlib
+- [ ] alternate definition form

@@ -93,5 +93,6 @@ typedef struct LexState {
 Object* parse_exp(LexState* ls);
 void print_object(Object* obj);
 Object* eval(Object* exp, Object* env);
+Object* apply(Object* proc, Object* args);
 
 #endif

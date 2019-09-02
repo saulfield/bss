@@ -59,13 +59,17 @@ f
 
 "y combinator"
 (define Y
-    (lambda (g)
-      ((lambda (x) (g (lambda (y) ((x x) y))))
-       (lambda (x) (g (lambda (y) ((x x) y)))))))
-(define z
+    (lambda (f)
+      ((lambda (x) (f (lambda (y) ((x x) y))))
+       (lambda (x) (f (lambda (y) ((x x) y)))))))
+(define factorial
     (Y (lambda (fact) 
          (lambda (n) 
            (if (= n 0)
                1
                (* n (fact (- n 1))))))))
-(z 5)
+(factorial 5)
+
+"apply"
+(apply + '(1 2 3))
+(apply factorial '(5))

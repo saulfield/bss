@@ -31,6 +31,7 @@ Object* if_symbol;
 Object* lambda_symbol;
 Object* cond_symbol;
 Object* else_symbol;
+Object* apply_symbol;
 
 /* Object */
 
@@ -264,7 +265,6 @@ Object* _proc_set_cdr(Object* args) {
     return ok_symbol;
 }
 
-
 /* Environment */
 
 Object* extend_environment(Object* vars, Object* vals, Object* env) {
@@ -367,6 +367,7 @@ void init() {
     lambda_symbol = new_symbol("lambda");
     cond_symbol   = new_symbol("cond");
     else_symbol   = new_symbol("else");
+    apply_symbol  = new_symbol("apply");
 
     add_procedure("+",        _proc_add);
     add_procedure("-",        _proc_sub);
@@ -651,28 +652,36 @@ Object* eval(Object* exp, Object* env) {
                 return new_procedure(params, body, env);
             }
 
+            if (tag == apply_symbol) {
+                Object* proc = eval(cadr(exp), env);
+                Object* args = list_of_values(eval(caddr(exp), env), env);
+                return apply(proc, args);
+            }
+
             // procedure application
             Object* proc = eval(car(exp), env);
             Object* args = list_of_values(cdr(exp), env);
-
-            if (type(proc) == TYPE_PRIMITIVE)
-                return proc->func(args);
-            
-            assert(type(proc) == TYPE_PROCEDURE, "expected compound procedure");
-
-            Object* new_env = extend_environment(proc->params, args, proc->env);
-            Object* body = proc->body;
-            Object* result;
-            while (body != empty_list) {
-                result = eval(car(body), new_env);
-                body = cdr(body);
-            }
-            return result;
+            return apply(proc, args);
         }
         default:
             fprintf(stderr, "unexpected type: [%s]\n", type_names[type(exp)]);
             exit(1);
     }
+}
+
+Object* apply(Object* proc, Object* args) {
+    if (type(proc) == TYPE_PRIMITIVE)
+        return proc->func(args);
+    
+    assert(type(proc) == TYPE_PROCEDURE, "expected compound procedure");
+    Object* new_env = extend_environment(proc->params, args, proc->env);
+    Object* body = proc->body;
+    Object* result;
+    while (body != empty_list) {
+        result = eval(car(body), new_env);
+        body = cdr(body);
+    }
+    return result;
 }
 
 /* Printing */
