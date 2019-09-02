@@ -34,6 +34,7 @@ Object* lambda_symbol;
 Object* cond_symbol;
 Object* else_symbol;
 Object* apply_symbol;
+Object* let_symbol;
 
 /* Object */
 
@@ -401,6 +402,7 @@ void init() {
     cond_symbol   = new_symbol("cond");
     else_symbol   = new_symbol("else");
     apply_symbol  = new_symbol("apply");
+    let_symbol    = new_symbol("let");
 
     add_procedure("+",        _proc_add);
     add_procedure("-",        _proc_sub);
@@ -631,6 +633,20 @@ Object* list_of_values(Object* exps, Object* env) {
                 list_of_values(cdr(exps), env));
 }
 
+Object* make_lambda(Object* params, Object* body_exps) {
+    return cons(lambda_symbol, cons(params, body_exps));
+}
+
+Object* let_vars(Object* bindings) {
+    if (bindings == empty_list) return empty_list;
+    return cons(caar(bindings), let_vars(cdr(bindings)));
+}
+
+Object* let_vals(Object* bindings) {
+    if (bindings == empty_list) return empty_list;
+    return cons(cadar(bindings), let_vals(cdr(bindings)));
+}
+
 Object* eval(Object* exp, Object* env) {
     switch (type(exp)) {
         
@@ -650,21 +666,16 @@ Object* eval(Object* exp, Object* env) {
                 return cadr(exp);
 
             if (tag == define_symbol) {
-                Object* name = cadr(exp);
-                Object* lambda = caddr(exp);
+                Object* name;
+                Object* lambda;
 
                 if (type(cadr(exp)) == TYPE_PAIR) {
-                    Object* params = cdadr(exp);
-                    Object* body_exps = cddr(exp);
                     name = caadr(exp);
-                    lambda = cons(lambda_symbol,
-                                  cons(params,
-                                       body_exps));
+                    lambda = make_lambda(cdadr(exp), cddr(exp));
                 } else {
                     name = cadr(exp);
                     lambda = caddr(exp);
                 }
-
                 define_variable(name, eval(lambda, env), env);
                 return ok_symbol;
             }
@@ -701,6 +712,16 @@ Object* eval(Object* exp, Object* env) {
                 Object* params = cadr(exp);
                 Object* body = cddr(exp);
                 return new_procedure(params, body, env);
+            }
+
+            if (tag == let_symbol) {
+                Object* bindings = cadr(exp);
+                Object* vars = let_vars(bindings);
+                Object* vals = let_vals(bindings);
+                Object* body_exps = cddr(exp);
+                
+                Object* lambda = make_lambda(vars, body_exps);
+                return eval(cons(lambda, vals), env);
             }
 
             if (tag == apply_symbol) {

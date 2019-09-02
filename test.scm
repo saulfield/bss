@@ -81,3 +81,9 @@ f
 "alternate define form"
 (define (double x) (* 2 x))
 (map double '(1 2 3))
+
+"let"
+(let ((x (+ 1 1))
+      (y (- 5 2)))
+  (+ x y))
+  
