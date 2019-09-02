@@ -1,3 +1,5 @@
+(load "stdlib.scm")
+
 "comments"
 ;; 123
  
@@ -42,6 +44,8 @@
 (- 15 5 5)
 (* 1 2 3)
 (/ 60 3 2)
+(not #t)
+(not #f)
 
 "lambda"
 (define f (lambda () (lambda (x) x)))

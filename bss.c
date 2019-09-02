@@ -191,12 +191,6 @@ Object* bool_object(bool expression) {
     return expression ? true_obj : false_obj;
 }
 
-Object* _proc_not(Object* args) {
-    Object* arg = car(args);
-    assert(type(arg) == TYPE_BOOL, "expected bool");
-    return bool_object(!arg->bool_val);
-}
-
 Object* _proc_is_null(Object* args) {
     return bool_object(car(args) == empty_list);
 }
@@ -262,6 +256,24 @@ Object* _proc_set_car(Object* args) {
 Object* _proc_set_cdr(Object* args) {
     Object* pair = car(args);
     pair->cdr = cadr(args);
+    return ok_symbol;
+}
+
+Object* _proc_load(Object* args) {
+    assert(type(car(args)) == TYPE_STRING, "proc load expected string");
+    char* filename = car(args)->str_val;
+
+    FILE* file = fopen(filename, "r");
+    if (file == NULL) {
+        fprintf(stderr, "could not open file: %s\n", filename);
+        exit(1);
+    }
+
+    LexState ls = {};
+    ls.stream = file;
+    eval_all(&ls, false);
+    fclose(file);
+
     return ok_symbol;
 }
 
@@ -374,7 +386,6 @@ void init() {
     add_procedure("*",        _proc_mul);
     add_procedure("/",        _proc_div);
     add_procedure("=",        _proc_equals);
-    add_procedure("not",      _proc_not);
 
     add_procedure("null?",    _proc_is_null);
     add_procedure("eq?",      _proc_is_eq);
@@ -389,6 +400,8 @@ void init() {
     add_procedure("cons",     _proc_cons);
     add_procedure("set-car!", _proc_set_car);
     add_procedure("set-cdr!", _proc_set_cdr);
+
+    add_procedure("load",     _proc_load);
 }
 
 /* Lex */
@@ -724,12 +737,12 @@ void print_object(Object* obj) {
 
 /* Main */
 
-void eval_all(LexState* ls) {
+void eval_all(LexState* ls, bool verbose) {
     next_token(ls);
     while (ls->token.kind != TK_EOF) {
         Object* exp = parse_exp(ls);
         Object* result = eval(exp, global_env);
-        if (result) {
+        if (result && verbose) {
             print_object(result);
             printf("\n");
         }
@@ -745,10 +758,9 @@ void skip_repl_space(FILE* stream) {
 }
 
 int main(int argc, char** argv) {
-    LexState ls = {};
-
     init();
-
+    
+    LexState ls = {};
     if (argc == 3 && !strncmp(argv[1], "-f", 2)) {
         FILE* file = fopen(argv[2], "r");
         if (file == NULL) {
@@ -757,10 +769,10 @@ int main(int argc, char** argv) {
         }
 
         ls.stream = file;
-        eval_all(&ls);
+        eval_all(&ls, true);
         fclose(file);
     } else {
-        printf("Welcome to Bootstrap Scheme\n");
+        printf("Welcome to Bootstrap Scheme\n\n");
         
         while (true) {
             char buf[BUF_MAX];
@@ -781,7 +793,7 @@ int main(int argc, char** argv) {
 
             FILE* stream = fmemopen(buf, len, "r");
             ls.stream = stream;
-            eval_all(&ls);
+            eval_all(&ls, true);
             fclose(stream);
         }
     }
