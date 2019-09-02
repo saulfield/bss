@@ -279,9 +279,6 @@
          (error "Unknown procedure type: APPLY"
                 procedure))))
 
-;; Exercises -----------------------------------------------
-
-;; 4.1 
 (define (list-of-values exps env)
   (if (null? exps)
       '()
@@ -289,7 +286,6 @@
         (let ((rest (list-of-values (cdr exps) env)))
           (cons left rest)))))
 
-;; 4.6
 (define (let? exp) (tagged-list? exp 'let))
 (define (let->combination exp)
   (define params (map car (cadr exp)))
@@ -297,8 +293,6 @@
   (define body (cddr exp))
   (cons (make-lambda params body)
         args))
-
-;; 4.16
 
 (define (make-let vars vals body)
   (define (loop vars vals)
@@ -334,17 +328,6 @@
                        vals)
                   new-body))))
 
-;; 4.18
-
-;; The method shown in the exercise will not work because
-;; both a and b will be evaluated in an environment where
-;; y and dy are bound to '*unassigned*
-
-;; The method from the text will work, because dy will be set
-;; after y has been set to its initial value
-
-;; 4.20
-
 (define (letrec? exp) (tagged-list? exp 'letrec))
 (define (letrec-vars exp) (map car  (cadr exp)))
 (define (letrec-vals exp) (map cadr (cadr exp)))
@@ -357,112 +340,3 @@
   (make-let vars
             (map (lambda (x) (quote '*unassigned*)) vals)
             new-body))
-
-;; 4.21
-
-(define Y
-  (lambda (F)
-    ((lambda (x)
-       (F (lambda (arg) ((x x) arg))))
-     (lambda (x)
-       (F (lambda (arg) ((x x) arg)))))))
-
-(define fact-gen
-  (lambda (f)
-    (lambda (n)
-      (if (= n 0)
-          1
-          (* n (f (- n 1)))))))
-(define fact (Y fact-gen))
-
-(define fib-gen
-  (lambda (f)
-    (lambda (n)
-      (if (< n 2)
-          n
-          (+ (f (- n 1))
-             (f (- n 2)))))))
-(define fib (Y fib-gen))
-
-;; Tests ---------------------------------------------------
-
-;; (define (test-eval-env env exp expected)
-;;   (define result (eval-expr exp env))
-;;   (if (equal? result expected)
-;;       (printf "Passed: (eval-expr ~s)~n" exp)
-;;       (begin 
-;;         (printf "Failed: ~s~n" exp)
-;;         (printf "  Expected: ~s~n" expected)
-;;         (printf "  Actual:   ~s~n" result))))
-
-;; (define (test-eval exp expected)
-;;   (test-eval-env (setup-environment) exp expected))
-
-;; (define (run-tests)
-;;   (define test-env (setup-environment))
-;;   (define ex1
-;;     '((lambda ()
-;;         (define u 1)
-;;         (define v 2)
-;;         (cons u v))))
-;;   (define ex2
-;;     '(let ((u '*unassigned*) (v '*unassigned*))
-;;       (set! u 1)
-;;       (set! v 2)
-;;       (cons u v)))
-;;   (define ex3
-;;     '((lambda (x)
-;;         (letrec
-;;           ((even?
-;;             (lambda (n)
-;;               (if (= n 0)
-;;                   true
-;;                   (odd? (- n 1)))))
-;;           (odd?
-;;             (lambda (n)
-;;               (if (= n 0)
-;;                   false
-;;                   (even? (- n 1))))))
-;;         (even? x))) 5))
-
-;;   (printf "Expression tests ---------------------------~n")
-;;   (test-eval '1 1)
-;;   (test-eval '(quote a) 'a)
-;;   (test-eval '"abc" "abc")
-;;   (test-eval '(* 2 3) (* 2 3))
-;;   (test-eval '(if 5  "true" "false") "true")
-;;   (test-eval '(if #t "true" "false") "true")
-;;   (test-eval '(if #f "true" "false") "false")
-;;   (test-eval '(if true  "true" "false") "true")
-;;   (test-eval '(if false "true" "false") "false")
-;;   (test-eval '(cond (true  "true") (else "false")) "true")
-;;   (test-eval '(cond (false "true") (else "false")) "false")
-;;   (test-eval '(cons 1 2) (cons 1 2))
-;;   (test-eval '(define x 1) 'ok)
-;;   (test-eval '(define x (cons 1 2)) 'ok)
-;;   (test-eval '(define f (lambda () 'result)) 'ok)
-;;   (test-eval '(define f (lambda (x y) (cons x y))) 'ok)
-;;   (test-eval '(define (f) 'result) 'ok)
-;;   (test-eval '(define (f x y) (cons x y)) 'ok)
-;;   (test-eval '(begin 'a 'b) 'b)
-;;   (test-eval '(begin (define a 1) (define b 2)) 'ok)
-;;   (test-eval '(let ((a 1) (b 2)) (cons a b)) (cons 1 2))
-;;   (test-eval ex1 (cons 1 2))
-;;   (test-eval ex2 (cons 1 2))
-;;   (test-eval ex3 #f)
-
-;;   (printf "~nEnvironment tests --------------------------~n")
-;;   (test-eval-env test-env '(define (f x y) (cons x y)) 'ok)
-;;   (test-eval-env test-env '(f 3 4) (cons 3 4))
-;;   (test-eval-env test-env '(define x 1) 'ok)
-;;   (test-eval-env test-env '(define y 2) 'ok)
-;;   (test-eval-env test-env '(define z (cons x y)) 'ok)
-;;   (test-eval-env test-env 'x 1)
-;;   (test-eval-env test-env 'y 2)
-;;   (test-eval-env test-env 'z (cons 1 2))
-;;   (test-eval-env test-env '(define (try a b)
-;;                             (if (= a 0) 1 b))
-;;                           'ok)
-;;   (test-eval-env test-env '(try 0 (/ 1 0)) 1))
-
-;; (run-tests)

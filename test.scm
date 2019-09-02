@@ -111,7 +111,3 @@ f
 (eval-expr '(define fact (Y fact-gen)) global-env)
 
 (eval-expr '(fact 5) global-env)
-
-
-
-
