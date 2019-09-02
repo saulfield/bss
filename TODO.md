@@ -1,6 +1,0 @@
-- [x] fix comments
-- [x] fix REPL parsing
-- [x] apply
-- [x] load
-- [x] stdlib
-- [x] alternate definition form

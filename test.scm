@@ -88,6 +88,10 @@ f
   (+ x y))
 
 "sicp interpreter"
+
+;; Runs the Scheme code for the SICP evaluator, which defines the procedure eval-expr,
+;; then evaluates the Y combinator form of the factorial function using the SICP evaluator.
+
 (load "sicp.scm")
 
 (eval-expr '(define Y
