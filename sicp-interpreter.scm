@@ -357,29 +357,29 @@
 
 ;; 4.21
 
-(define Y
-  (lambda (F)
-    ((lambda (x)
-       (F (lambda (arg) ((x x) arg))))
-     (lambda (x)
-       (F (lambda (arg) ((x x) arg)))))))
+;; (define Y
+;;   (lambda (F)
+;;     ((lambda (x)
+;;        (F (lambda (arg) ((x x) arg))))
+;;      (lambda (x)
+;;        (F (lambda (arg) ((x x) arg)))))))
 
-(define fact-gen
-  (lambda (f)
-    (lambda (n)
-      (if (= n 0)
-          1
-          (* n (f (- n 1)))))))
-(define fact (Y fact-gen))
+;; (define fact-gen
+;;   (lambda (f)
+;;     (lambda (n)
+;;       (if (= n 0)
+;;           1
+;;           (* n (f (- n 1)))))))
+;; (define fact (Y fact-gen))
 
-(define fib-gen
-  (lambda (f)
-    (lambda (n)
-      (if (< n 2)
-          n
-          (+ (f (- n 1))
-             (f (- n 2)))))))
-(define fib (Y fib-gen))
+;; (define fib-gen
+;;   (lambda (f)
+;;     (lambda (n)
+;;       (if (< n 2)
+;;           n
+;;           (+ (f (- n 1))
+;;              (f (- n 2)))))))
+;; (define fib (Y fib-gen))
 
 ;; Tests ---------------------------------------------------
 

@@ -16,6 +16,7 @@ const bool valid_chars[] = {
     ['/'] = true,
     ['*'] = true,
     ['='] = true,
+    ['<'] = true,
     ['_'] = true,
     ['!'] = true,
     ['?'] = true,

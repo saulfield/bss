@@ -189,6 +189,25 @@ Object* _proc_equals(Object* args) {
     return true_obj;
 }
 
+Object* _proc_less_than(Object* args) {
+    Object* obj = car(args);
+    assert(type(obj) == TYPE_INT, "expected TYPE_INT");
+
+    int initial_val = obj->int_val;
+    args = cdr(args);
+
+    while (args != empty_list) {
+        obj = car(args);
+        assert(type(obj) == TYPE_INT, "expected TYPE_INT");
+
+        if (!(obj->int_val < initial_val))
+            return false_obj;
+
+        args = cdr(args);
+    }
+    return true_obj;
+}
+
 Object* bool_object(bool expression) {
     return expression ? true_obj : false_obj;
 }
@@ -388,6 +407,7 @@ void init() {
     add_procedure("*",        _proc_mul);
     add_procedure("/",        _proc_div);
     add_procedure("=",        _proc_equals);
+    add_procedure("<",        _proc_less_than);
 
     add_procedure("null?",    _proc_is_null);
     add_procedure("eq?",      _proc_is_eq);
@@ -494,7 +514,8 @@ void next_token(LexState* ls) {
             break;
 
         case '_':
-        case '+': case '-': case '*': case '/': case '=':
+        case '+': case '-': case '*': case '/':
+        case '=': case '<':
         case 'A'...'Z':
         case 'a'...'z': {
             // parse as number if digits follow minus sign
