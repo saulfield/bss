@@ -9,8 +9,10 @@
 
 #define BUF_MAX 256
 
+#define caar(x) (car(car(x)))
 #define cadr(x) (car(cdr(x)))
 #define cddr(x) (cdr(cdr(x)))
+#define cadar(x) (car(cdr(car(x))))
 #define caddr(x) (car(cddr(x)))
 #define cdddr(x) (cdr(cddr(x)))
 #define cadddr(x) (car(cdddr(x)))
@@ -27,6 +29,8 @@ Object* set_symbol;
 Object* ok_symbol;
 Object* if_symbol;
 Object* lambda_symbol;
+Object* cond_symbol;
+Object* else_symbol;
 
 /* Object */
 
@@ -82,7 +86,7 @@ Object* get_symbol(char* name) {
     Object* sym = symbols_head;
     while (sym != empty_list) {
         char* entry = car(sym)->str_val;
-        if (strncmp(entry, name, strlen(entry)) == 0) {
+        if (strcmp(entry, name) == 0) {
             return car(sym);
         }
         sym = cdr(sym);
@@ -324,7 +328,8 @@ Object* lookup_variable(Object* var, Object* env) {
         vals = cdr(frame);
 
         while (vars != empty_list) {
-            if (car(vars) == var) {
+            Object* sym = car(vars);
+            if (sym == var) {
                 return car(vals);
             }
             vars = cdr(vars);
@@ -360,20 +365,22 @@ void init() {
     ok_symbol     = new_symbol("ok");
     if_symbol     = new_symbol("if");
     lambda_symbol = new_symbol("lambda");
+    cond_symbol   = new_symbol("cond");
+    else_symbol   = new_symbol("else");
 
-    add_procedure("+",   _proc_add);
-    add_procedure("-",   _proc_sub);
-    add_procedure("*",   _proc_mul);
-    add_procedure("/",   _proc_div);
-    add_procedure("=",   _proc_equals);
-    add_procedure("not", _proc_not);
+    add_procedure("+",        _proc_add);
+    add_procedure("-",        _proc_sub);
+    add_procedure("*",        _proc_mul);
+    add_procedure("/",        _proc_div);
+    add_procedure("=",        _proc_equals);
+    add_procedure("not",      _proc_not);
 
-    add_procedure("null?",   _proc_is_null);
-    add_procedure("eq?",     _proc_is_eq);
-    add_procedure("number?", _proc_is_number);
-    add_procedure("string?", _proc_is_string);
-    add_procedure("symbol?", _proc_is_symbol);
-    add_procedure("pair?",   _proc_is_pair);
+    add_procedure("null?",    _proc_is_null);
+    add_procedure("eq?",      _proc_is_eq);
+    add_procedure("number?",  _proc_is_number);
+    add_procedure("string?",  _proc_is_string);
+    add_procedure("symbol?",  _proc_is_symbol);
+    add_procedure("pair?",    _proc_is_pair);
     
     add_procedure("list",     _proc_list);
     add_procedure("car",      _proc_car);
@@ -627,6 +634,17 @@ Object* eval(Object* exp, Object* env) {
                 }
             }
 
+            if (tag == cond_symbol) {
+                Object* clauses = cdr(exp);
+                while (car(clauses) != empty_list) {
+                    if (caar(clauses) == else_symbol ||
+                        eval(caar(clauses), env) == true_obj)
+                        return eval(cadar(clauses), env);
+                    clauses = cdr(clauses);
+                }
+                return NULL;
+            }
+
             if (tag == lambda_symbol) {
                 Object* params = cadr(exp);
                 Object* body = cddr(exp);
@@ -642,7 +660,7 @@ Object* eval(Object* exp, Object* env) {
             
             assert(type(proc) == TYPE_PROCEDURE, "expected compound procedure");
 
-            Object* new_env = extend_environment(proc->params, args, env);
+            Object* new_env = extend_environment(proc->params, args, proc->env);
             Object* body = proc->body;
             Object* result;
             while (body != empty_list) {
@@ -697,14 +715,6 @@ void print_object(Object* obj) {
 
 /* Main */
 
-void skip_repl_space(FILE* stream) {
-    int c = getc(stream);
-    while (c == ' ') {
-        c = getc(stream);
-    }
-    ungetc(c, stream);
-}
-
 void eval_all(LexState* ls) {
     next_token(ls);
     while (ls->token.kind != TK_EOF) {
@@ -715,6 +725,14 @@ void eval_all(LexState* ls) {
             printf("\n");
         }
     }
+}
+
+void skip_repl_space(FILE* stream) {
+    int c = getc(stream);
+    while (c == ' ') {
+        c = getc(stream);
+    }
+    ungetc(c, stream);
 }
 
 int main(int argc, char** argv) {

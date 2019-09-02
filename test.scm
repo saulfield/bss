@@ -52,17 +52,20 @@ f
 ((f) 2)
 ((lambda (x) x) 3)
 
+"cond"
+(cond (#f 1)
+      ((eq? 'a 'a) 2)
+      (else 3))
+
 "y combinator"
 (define Y
-    (lambda (f)
-      ((lambda (x) (f (lambda (y) ((x x) y))))
-       (lambda (x) (f (lambda (y) ((x x) y)))))))
-(define factorial
+    (lambda (g)
+      ((lambda (x) (g (lambda (y) ((x x) y))))
+       (lambda (x) (g (lambda (y) ((x x) y)))))))
+(define z
     (Y (lambda (fact) 
          (lambda (n) 
            (if (= n 0)
                1
                (* n (fact (- n 1))))))))
-(factorial 5)
-
-;
+(z 5)
