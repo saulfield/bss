@@ -12,6 +12,8 @@
 #define caar(x) (car(car(x)))
 #define cadr(x) (car(cdr(x)))
 #define cddr(x) (cdr(cdr(x)))
+#define caadr(x) (car(cadr(x)))
+#define cdadr(x) (cdr(cadr(x)))
 #define cadar(x) (car(cdr(car(x))))
 #define caddr(x) (car(cddr(x)))
 #define cdddr(x) (cdr(cddr(x)))
@@ -627,7 +629,22 @@ Object* eval(Object* exp, Object* env) {
                 return cadr(exp);
 
             if (tag == define_symbol) {
-                define_variable(cadr(exp), eval(caddr(exp), env), env);
+                Object* name = cadr(exp);
+                Object* lambda = caddr(exp);
+
+                if (type(cadr(exp)) == TYPE_PAIR) {
+                    Object* params = cdadr(exp);
+                    Object* body_exps = cddr(exp);
+                    name = caadr(exp);
+                    lambda = cons(lambda_symbol,
+                                  cons(params,
+                                       body_exps));
+                } else {
+                    name = cadr(exp);
+                    lambda = caddr(exp);
+                }
+
+                define_variable(name, eval(lambda, env), env);
                 return ok_symbol;
             }
 

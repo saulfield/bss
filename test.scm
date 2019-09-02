@@ -77,3 +77,7 @@ f
 "apply"
 (apply + '(1 2 3))
 (apply factorial '(5))
+
+"alternate define form"
+(define (double x) (* 2 x))
+(map double '(1 2 3))

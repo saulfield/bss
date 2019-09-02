@@ -3,4 +3,4 @@
 - [x] apply
 - [x] load
 - [x] stdlib
-- [ ] alternate definition form
+- [x] alternate definition form
