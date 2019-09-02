@@ -154,6 +154,98 @@ Object* _proc_div(Object* args) {
     return new_int(result);
 }
 
+Object* _proc_equals(Object* args) {
+    Object* obj = car(args);
+    assert(type(obj) == TYPE_INT, "expected TYPE_INT");
+
+    int initial_val = obj->int_val;
+    args = cdr(args);
+
+    while (args != empty_list) {
+        obj = car(args);
+        assert(type(obj) == TYPE_INT, "expected TYPE_INT");
+
+        if (obj->int_val != initial_val)
+            return false_obj;
+
+        args = cdr(args);
+    }
+    return true_obj;
+}
+
+Object* bool_object(bool expression) {
+    return expression ? true_obj : false_obj;
+}
+
+Object* _proc_is_null(Object* args) {
+    return bool_object(car(args) == empty_list);
+}
+
+Object* _proc_is_eq(Object* args) {
+    Object* a = car(args);
+    Object* b = cadr(args);
+
+    if (type(a) != type(b))
+        return false_obj;
+
+    switch(type(a)) {
+        case TYPE_INT: 
+            return bool_object(a->bool_val == b->bool_val);
+        case TYPE_STRING: 
+            return bool_object(!strcmp(a->str_val, b->str_val));
+        default: 
+            return bool_object(a == b);
+    }
+}
+
+Object* _proc_is_number(Object* args) {
+    return bool_object(type(car(args)) == TYPE_INT);
+}
+
+Object* _proc_is_string(Object* args) {
+    return bool_object(type(car(args)) == TYPE_STRING);
+}
+
+Object* _proc_is_symbol(Object* args) {
+    return bool_object(type(car(args)) == TYPE_SYMBOL);
+}
+
+Object* _proc_is_pair(Object* args) {
+    return bool_object(type(car(args)) == TYPE_PAIR);
+}
+
+Object* _proc_list(Object* args) {
+    if (args == empty_list)
+        return empty_list;
+
+    return cons(car(args), _proc_list(cdr(args)));
+}
+
+Object* _proc_car(Object* args) {
+    return car(car(args));
+}
+
+Object* _proc_cdr(Object* args) {
+    return cdr(car(args));
+}
+
+Object* _proc_cons(Object* args) {
+    return cons(car(args), cadr(args));
+}
+
+Object* _proc_set_car(Object* args) {
+    Object* pair = car(args);
+    pair->car = cadr(args);
+    return ok_symbol;
+}
+
+Object* _proc_set_cdr(Object* args) {
+    Object* pair = car(args);
+    pair->cdr = cadr(args);
+    return ok_symbol;
+}
+
+
 /* Environment */
 
 Object* extend_environment(Object* vars, Object* vals, Object* env) {
@@ -257,6 +349,21 @@ void init() {
     add_procedure("-", _proc_sub);
     add_procedure("*", _proc_mul);
     add_procedure("/", _proc_div);
+    add_procedure("=", _proc_equals);
+
+    add_procedure("null?", _proc_is_null);
+    add_procedure("eq?", _proc_is_eq);
+    add_procedure("number?", _proc_is_number);
+    add_procedure("string?", _proc_is_string);
+    add_procedure("symbol?", _proc_is_symbol);
+    add_procedure("pair?", _proc_is_pair);
+    
+    add_procedure("list", _proc_list);
+    add_procedure("car", _proc_car);
+    add_procedure("cdr", _proc_cdr);
+    add_procedure("cons", _proc_cons);
+    add_procedure("set-car!", _proc_set_car);
+    add_procedure("set-cdr!", _proc_set_cdr);
 }
 
 /* Lex */
@@ -347,7 +454,7 @@ void next_token(LexState* ls) {
             break;
 
         case '_':
-        case '+': case '-': case '*': case '/':
+        case '+': case '-': case '*': case '/': case '=':
         case 'A'...'Z':
         case 'a'...'z': {
             // parse as number if digits follow minus sign
